@@ -42,9 +42,10 @@ panel_iframe:
 
 ## Scrypted NVR Card Setup
 
-Install the Scrypted NVR plugin in Scrypted.
+[Scrypted NVR provides Home Assistant cards](https://github.com/koush/nvr.scrypted.app/wiki/Home-Assistant) that feature low latency playback and two way audio.
 
-Then add the following `Webpage Card` in Home Assistant (adjusting token and `24` as necessary):
+1. Install the Scrypted NVR plugin in Scrypted.
+2. Then add the following `Webpage Card` in Home Assistant (adjusting token and `24` as necessary):
 
 ```yaml
 type: iframe
