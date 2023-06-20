@@ -1,6 +1,7 @@
 # Scrypted Custom Component for Home Assistant
 
 The Scrypted Custom Component for Home Assistant adds support for Scrypted NVR cards.
+This custom component is unnecessary if Scrypted was installed as a Home Assistant OS addon.
 
 ## Scrypted Setup
 
