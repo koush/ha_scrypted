@@ -1,0 +1,16 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "New NEW_NAME Sensor",
+        "data": {
+          "entity_id": "Input sensor",
+          "name": "Name"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {}
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "domain": "scrypted",
+  "name": "Scrypted",
+  "version": "0.0.2",
+  "codeowners": ["@koush"],
+  "config_flow": true,
+  "dependencies": ["http"],
+  "issue_tracker": "https://github.com/koush/ha_scrypted/issues",
+  "documentation": "https://www.home-assistant.io/integrations/scrypted",
+  "homekit": {},
+  "integration_type": "helper",
+  "iot_class": "local_push",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": []
+}
