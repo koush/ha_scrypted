@@ -48,7 +48,7 @@ class ScryptedIngress(HomeAssistantView):
 
     name = "api:scrypted"
     url = "/api/scrypted/{path:.*}"
-    requires_auth = False
+    requires_auth = True
 
     def __init__(
         self, host: str, token: str, websession: aiohttp.ClientSession
