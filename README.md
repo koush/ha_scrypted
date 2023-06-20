@@ -42,7 +42,9 @@ panel_iframe:
 
 ## Scrypted NVR Card Setup
 
-Add the following `Webpage Card` (adjusting token and `24` as necessary):
+Install the Scrypted NVR plugin in Scrypted.
+
+Then add the following `Webpage Card` in Home Assistant (adjusting token and `24` as necessary):
 
 ```yaml
 type: iframe
