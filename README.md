@@ -36,7 +36,7 @@ panel_iframe:
     url: "/api/scrypted/28d12b0b97cd99c3f0808cb7a78d08ef/"
 ```
 
-### Scrypted NVR Card Setup
+## Scrypted NVR Card Setup
 
 Add the following `Webpage Card` (adjusting token and `24` as necessary):
 
