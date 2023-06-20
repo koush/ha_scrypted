@@ -4,7 +4,7 @@ The Scrypted Custom Component for Home Assistant adds support for Scrypted NVR c
 
 ## Scrypted Setup
 
-First, retrieve a token so Home Assistant can access Scrypted.
+Retrieve a token that Home Assistant can use to authenticate with Scrypted.
 
 1. In the Scrypted Management Console, open the Terminal tool in the drawer.
 2. Run `npx scrypted login`.
