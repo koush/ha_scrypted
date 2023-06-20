@@ -23,10 +23,9 @@ from homeassistant.helpers.typing import ConfigType
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Auth setup."""
     host = config["scrypted"]["host"]
-    token = config["scrypted"]["token"]
     websession = async_get_clientsession(hass)
 
-    hassio_ingress = ScryptedIngress(host, token, websession)
+    hassio_ingress = ScryptedIngress(host, websession)
     hass.http.register_view(hassio_ingress)
     return True
 
@@ -47,15 +46,14 @@ class ScryptedIngress(HomeAssistantView):
     """Hass.io view to handle base part."""
 
     name = "api:scrypted"
-    url = "/api/scrypted/{path:.*}"
+    url = "/api/scrypted/{token}/{path:.*}"
     requires_auth = False
 
     def __init__(
-        self, host: str, token: str, websession: aiohttp.ClientSession
+        self, host: str, websession: aiohttp.ClientSession
     ) -> None:
         """Initialize a Hass.io ingress view."""
         self._host = host
-        self.token = token
         self._websession = websession
 
     @lru_cache
@@ -74,16 +72,16 @@ class ScryptedIngress(HomeAssistantView):
         return url
 
     async def _handle(
-        self, request: web.Request, path: str
+        self, request: web.Request, token: str, path: str
     ) -> web.Response | web.StreamResponse | web.WebSocketResponse:
         """Route data to Hass.io ingress service."""
         try:
             # Websocket
             if _is_websocket(request):
-                return await self._handle_websocket(request, path)
+                return await self._handle_websocket(request, token, path)
 
             # Request
-            return await self._handle_request(request, path)
+            return await self._handle_request(request, token, path)
 
         except aiohttp.ClientError as err:
             _LOGGER.debug("Ingress error with %s: %s", path, err)
@@ -98,7 +96,7 @@ class ScryptedIngress(HomeAssistantView):
     options = _handle
 
     async def _handle_websocket(
-        self, request: web.Request, path: str
+        self, request: web.Request, token: str, path: str
     ) -> web.WebSocketResponse:
         """Ingress route for websocket."""
         req_protocols: Iterable[str]
@@ -118,7 +116,7 @@ class ScryptedIngress(HomeAssistantView):
         # Preparing
         url = self._create_url(path)
         source_header = _init_header(request)
-        source_header["Authorization"] = f"Bearer {self.token}"
+        source_header["Authorization"] = f"Bearer {token}"
 
         # Support GET query
         if request.query_string:
@@ -145,12 +143,12 @@ class ScryptedIngress(HomeAssistantView):
         return ws_server
 
     async def _handle_request(
-        self, request: web.Request, path: str
+        self, request: web.Request, token: str, path: str
     ) -> web.Response | web.StreamResponse:
         """Ingress route for request."""
         url = self._create_url(path)
         source_header = _init_header(request)
-        source_header["Authorization"] = f"Bearer {self.token}"
+        source_header["Authorization"] = f"Bearer {token}"
 
         async with self._websession.request(
             request.method,
