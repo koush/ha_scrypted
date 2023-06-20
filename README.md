@@ -26,12 +26,12 @@ login successful. token: 28d12b0b97cd99c3f0808cb7a78d08ef
 
 ```yaml
 scrypted:
-    host: 192.168.2.124:10443
-    token: 28d12b0b97cd99c3f0808cb7a78d08ef
+  host: 192.168.2.124:10443
+  token: 28d12b0b97cd99c3f0808cb7a78d08ef
 
 # This section is optional. Add Scrypted to the drawer within the HA dashboard for quick access.
 panel_iframe:
-    router:
+  scrypted:
     title: "Scrypted"
     icon: mdi:memory
     url: "/api/scrypted/"
