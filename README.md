@@ -27,12 +27,23 @@ login successful. token: 28d12b0b97cd99c3f0808cb7a78d08ef
 ```yaml
 scrypted:
   host: 192.168.2.124:10443
-  token: 28d12b0b97cd99c3f0808cb7a78d08ef
 
 # This section is optional. Add Scrypted to the drawer within the HA dashboard for quick access.
 panel_iframe:
   scrypted:
     title: "Scrypted"
     icon: mdi:memory
-    url: "/api/scrypted/"
+    url: "/api/scrypted/28d12b0b97cd99c3f0808cb7a78d08ef/"
+```
+
+### Scrypted NVR Card Setup
+
+Add the following `Webpage Card` (adjusting token and `24` as necessary):
+
+```yaml
+type: iframe
+# Replace "24" with the id of your camera in Scrypted. The id is visible in the address bar in the browser.
+url: >-
+  /api/scrypted/28d12b0b97cd99c3f0808cb7a78d08ef/endpoint/@scrypted/nvr/public/#/iframe/24
+aspect_ratio: '16:9'
 ```
