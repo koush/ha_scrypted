@@ -22,7 +22,7 @@ login successful. token: 28d12b0b97cd99c3f0808cb7a78d08ef
 ## Home Assistant Setup
 
 1. Install this repository using [HACS](https://hacs.xyz).
-2. Edit `configuration.yaml` and add the following (adjust local IP as necessary):
+2. Edit `configuration.yaml` and add the following (adjusting local IP and token):
 
 ```yaml
 scrypted:
