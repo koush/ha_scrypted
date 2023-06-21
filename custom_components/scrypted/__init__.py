@@ -206,6 +206,7 @@ def _init_header(request: web.Request) -> CIMultiDict | dict[str, str]:
             hdrs.CONTENT_LENGTH,
             hdrs.CONTENT_ENCODING,
             hdrs.TRANSFER_ENCODING,
+            hdrs.CONNECTION,
             hdrs.SEC_WEBSOCKET_EXTENSIONS,
             hdrs.SEC_WEBSOCKET_PROTOCOL,
             hdrs.SEC_WEBSOCKET_VERSION,

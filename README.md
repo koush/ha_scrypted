@@ -1,7 +1,10 @@
 # Scrypted Custom Component for Home Assistant
 
-The Scrypted Custom Component for Home Assistant adds support for Scrypted NVR cards.
+The Scrypted Custom Component for Home Assistant adds support managing Scrypted from your HA Dashboard, and creation of Scrypted NVR cards.
 This custom component is unnecessary if Scrypted was installed as a Home Assistant OS addon.
+
+<img width="100%" alt="image" src="https://github.com/koush/ha_scrypted/assets/73924/7c6fdd6a-8722-4c82-8581-632cdfa4476d">
+
 
 ## Scrypted Setup
 
@@ -30,7 +33,7 @@ login successful. token: 28d12b0b97cd99c3f0808cb7a78d08ef
 # Port 10443 is Scrypted's default SSL listener port
 # in Scrypted and should typically *NOT** be changed.
 scrypted:
-  host: 192.168.2.124:10443
+  host: 192.168.1.124:10443
 
 # This section is optional.
 # Add Scrypted to the drawer within the HA dashboard for quick access.
@@ -43,7 +46,10 @@ panel_iframe:
 
 ## Scrypted NVR Card Setup
 
-Add the following `Webpage Card` (adjusting token and `24` as necessary):
+[Scrypted NVR provides Home Assistant cards](https://github.com/koush/nvr.scrypted.app/wiki/Home-Assistant) that feature low latency playback and two way audio.
+
+1. Install the Scrypted NVR plugin in Scrypted.
+2. Then add the following `Webpage Card` in Home Assistant (adjusting token and `24` as necessary):
 
 ```yaml
 type: iframe
