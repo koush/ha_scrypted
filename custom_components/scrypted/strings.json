@@ -1,15 +1,16 @@
 {
   "config": {
-    "error": {
-      "already_configured": "This Scrypted host is already configured."
-    },
     "step": {
       "user": {
-        "description": "Enter the host of your Scrypted server.\n\nExamples:\n- `scrypted.example.com`\n- `192.168.1.124:10443`",
+        "description": "New NEW_NAME Sensor",
         "data": {
-          "host": "Host"
+          "entity_id": "Input sensor",
+          "name": "Name"
         }
       }
     }
+  },
+  "options": {
+    "step": {}
   }
 }
