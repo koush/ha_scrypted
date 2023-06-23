@@ -15,15 +15,41 @@ from multidict import CIMultiDict
 from yarl import URL
 
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.components.persistent_notification import async_create
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
+from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
+from .const import DOMAIN
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Auth setup."""
-    host = config["scrypted"]["host"]
-    websession = async_get_clientsession(hass)
+    if DOMAIN not in config:
+        return True
+
+    async_create(
+        hass,
+        (
+            "Your Scrypted configuration has been imported as a config entry and can "
+            "safely be removed from your configuration.yaml."
+        ),
+        "Scrypted Config Import",
+    )
+    hass.async_create_task(
+        hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_IMPORT}, data=config[DOMAIN]
+        )
+    )
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Set up a Scrypted config entry."""
+    host = config_entry.options[CONF_HOST]
+    websession = async_get_clientsession(hass, verify_ssl=False)
 
     hassio_ingress = ScryptedIngress(host, websession)
     hass.http.register_view(hassio_ingress)
