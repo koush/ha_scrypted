@@ -16,13 +16,15 @@ from yarl import URL
 
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.components.persistent_notification import async_create
-from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
+from homeassistant.config_entries import ConfigEntry, SOURCE_IMPORT
 from homeassistant.const import CONF_HOST
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -56,18 +58,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     return True
 
 
-_LOGGER = logging.getLogger(__name__)
-
-
-@callback
-def async_setup_ingress_view(hass: HomeAssistant, host: str):
-    """Auth setup."""
-    websession = async_get_clientsession(hass, verify_ssl=False)
-
-    hassio_ingress = ScryptedIngress(host, websession)
-    hass.http.register_view(hassio_ingress)
-
-
 class ScryptedIngress(HomeAssistantView):
     """Hass.io view to handle base part."""
 
@@ -75,9 +65,7 @@ class ScryptedIngress(HomeAssistantView):
     url = "/api/scrypted/{token}/{path:.*}"
     requires_auth = False
 
-    def __init__(
-        self, host: str, websession: aiohttp.ClientSession
-    ) -> None:
+    def __init__(self, host: str, websession: aiohttp.ClientSession) -> None:
         """Initialize a Hass.io ingress view."""
         self._host = host
         self._websession = websession
