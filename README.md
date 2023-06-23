@@ -25,16 +25,12 @@ login successful. token: 28d12b0b97cd99c3f0808cb7a78d08ef
 
 ## Home Assistant Setup
 
-1. Install this repository using [HACS](https://hacs.xyz).
-2. Edit `configuration.yaml` and add the following (adjusting local IP and token):
+1. Install this repository using [HACS](https://hacs.xyz) (add this repo as a Custom Repository).
+2. Go to `Settings > Devices & Services > Add New` and select Scrypted
+3. Enter the host for your Scrypted server
+4. Optionally add the following snippet to your `configuration.yaml` to add a Scrypted link to your HA dashboard.
 
 ```yaml
-# Change the IP as necessary.
-# Port 10443 is Scrypted's default SSL listener port
-# in Scrypted and should typically *NOT** be changed.
-scrypted:
-  host: 192.168.1.124:10443
-
 # This section is optional.
 # Add Scrypted to the drawer within the HA dashboard for quick access.
 panel_iframe:
