@@ -15,31 +15,45 @@ from multidict import CIMultiDict
 from yarl import URL
 
 from homeassistant.components.http import HomeAssistantView
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.components.persistent_notification import async_create
+from homeassistant.config_entries import ConfigEntry, SOURCE_IMPORT
+from homeassistant.const import CONF_HOST
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Auth setup."""
-    host = config["scrypted"]["host"]
-    websession = async_get_clientsession(hass)
-
-    hassio_ingress = ScryptedIngress(host, websession)
-    hass.http.register_view(hassio_ingress)
-    return True
-
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 
-@callback
-def async_setup_ingress_view(hass: HomeAssistant, host: str):
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Auth setup."""
+    if DOMAIN in config:
+        async_create(
+            hass,
+            (
+                "Your Scrypted configuration has been imported as a config entry and "
+                "can safely be removed from your configuration.yaml."
+            ),
+            "Scrypted Config Import",
+        )
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": SOURCE_IMPORT}, data=config[DOMAIN]
+            )
+        )
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Set up a Scrypted config entry."""
+    host = config_entry.options[CONF_HOST]
     websession = async_get_clientsession(hass, verify_ssl=False)
 
     hassio_ingress = ScryptedIngress(host, websession)
     hass.http.register_view(hassio_ingress)
+    return True
 
 
 class ScryptedIngress(HomeAssistantView):
@@ -49,9 +63,7 @@ class ScryptedIngress(HomeAssistantView):
     url = "/api/scrypted/{token}/{path:.*}"
     requires_auth = False
 
-    def __init__(
-        self, host: str, websession: aiohttp.ClientSession
-    ) -> None:
+    def __init__(self, host: str, websession: aiohttp.ClientSession) -> None:
         """Initialize a Hass.io ingress view."""
         self._host = host
         self._websession = websession
