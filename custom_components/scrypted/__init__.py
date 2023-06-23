@@ -29,22 +29,20 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Auth setup."""
-    if DOMAIN not in config:
-        return True
-
-    async_create(
-        hass,
-        (
-            "Your Scrypted configuration has been imported as a config entry and can "
-            "safely be removed from your configuration.yaml."
-        ),
-        "Scrypted Config Import",
-    )
-    hass.async_create_task(
-        hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": SOURCE_IMPORT}, data=config[DOMAIN]
+    if DOMAIN in config:
+        async_create(
+            hass,
+            (
+                "Your Scrypted configuration has been imported as a config entry and "
+                "can safely be removed from your configuration.yaml."
+            ),
+            "Scrypted Config Import",
         )
-    )
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": SOURCE_IMPORT}, data=config[DOMAIN]
+            )
+        )
     return True
 
 
