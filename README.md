@@ -31,7 +31,8 @@ login successful. token: 28d12b0b97cd99c3f0808cb7a78d08ef
 4. Optionally add the following snippet to your `configuration.yaml` to add a Scrypted link to your HA dashboard.
 
 ```yaml
-# This section is optional. Add Scrypted to the drawer within the HA dashboard for quick access.
+# This section is optional.
+# Add Scrypted to the drawer within the HA dashboard for quick access.
 panel_iframe:
   scrypted:
     title: "Scrypted"
