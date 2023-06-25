@@ -21,7 +21,7 @@ This custom component is unnecessary if Scrypted was installed as a Home Assista
   * <img width="300" alt="image" src="https://github.com/koush/ha_scrypted/assets/73924/83239aef-036b-4977-a5eb-23dd8b2d5eb0">
 3. Find the Scrypted camera `id` from within the Scrypted Management console. The `id` is visible in the address bar in the browser. E.g. `32` below:
   * <img width="300" alt="image" src="https://github.com/koush/ha_scrypted/assets/73924/813e4218-3050-4c45-a5ad-db40ff60a159">
-4. Then add the following `Webpage Card` in Home Assistant (adjusting `<my_token>` and `<id>` as necessary):
+4. Then add the following `Webpage Card` in Home Assistant (adjusting `<token>` and `<id>` as necessary):
 
 ```yaml
 type: iframe
