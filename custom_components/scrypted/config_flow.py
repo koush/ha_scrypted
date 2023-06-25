@@ -74,7 +74,7 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.FlowResult:
         """Handle user flow."""
         errors = {}
-        if user_input is not None:
+        if user_input is not None and CONF_USERNAME in user_input:
             if await self.validate_host(user_input):
                 await self.async_set_unique_id(slugify(user_input[CONF_HOST]))
                 self._abort_if_unique_id_configured()
