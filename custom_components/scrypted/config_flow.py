@@ -59,9 +59,12 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize flow."""
         self.data = {}
 
-    async def validate_host(self, data: dict[str, Any]) -> bool:
+    async def validate_input(self, data: dict[str, Any]) -> bool:
         """Validate that the host is valid."""
         session = async_get_clientsession(self.hass, verify_ssl=False)
+        for key in (CONF_HOST, CONF_ICON, CONF_NAME, CONF_USERNAME):
+            if key not in data:
+                return False
         try:
             await retrieve_token(data, session)
         except ValueError:
@@ -75,7 +78,7 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle user flow."""
         errors = {}
         if user_input is not None and CONF_USERNAME in user_input:
-            if await self.validate_host(user_input):
+            if await self.validate_input(user_input):
                 await self.async_set_unique_id(slugify(user_input[CONF_HOST]))
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
@@ -105,7 +108,7 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle reauth step."""
         errors = {}
         if user_input is not None:
-            if await self.validate_host(user_input):
+            if await self.validate_input(user_input):
                 unique_id = slugify(user_input[CONF_HOST])
                 config_entry = self.hass.config_entries.async_get_entry(
                     self.context["entry_id"]
