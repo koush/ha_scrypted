@@ -27,7 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -> str:
     """Retrieve token from Scrypted server."""
     username = data[CONF_USERNAME]
-    password = data.get(CONF_PASSWORD,"")
+    password = data.get(CONF_PASSWORD, "")
     resp = await session.get(
         f"https://{data[CONF_HOST]}/login",
         headers={"authorization": aiohttp.BasicAuth(username, password).encode()},
