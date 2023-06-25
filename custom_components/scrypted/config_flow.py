@@ -1,53 +1,148 @@
 """Config flow for Scrypted integration."""
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any
 
 import voluptuous as vol
-
-from homeassistant.const import CONF_HOST
-from homeassistant.core import callback
-from homeassistant.helpers import selector
-from homeassistant.helpers.schema_config_entry_flow import (
-    SchemaCommonFlowHandler,
-    SchemaConfigFlowHandler,
-    SchemaFlowFormStep,
-    SchemaFlowMenuStep,
+from homeassistant import config_entries
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_ICON,
+    CONF_NAME,
+    CONF_PASSWORD,
+    CONF_USERNAME,
 )
+from homeassistant.helpers import selector
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util import slugify
 
 from .const import DOMAIN
+from .http import retrieve_token
 
 
-async def validate_host(
-    flow: SchemaCommonFlowHandler, data: dict[str, Any]
-) -> dict[str, Any]:
-    """Validate that the host is valid."""
-    await flow.parent_handler.async_set_unique_id(data[CONF_HOST])
-    flow.parent_handler._abort_if_unique_id_configured()
-    return data
+def text_selector(type: selector.TextSelectorType) -> selector.TextSelector:
+    """Create a text selector."""
+    return selector.TextSelector(selector.TextSelectorConfig(type=type))
 
 
-CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_HOST): selector.TextSelector(
-            selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
-        ),
-    }
-)
+def _get_config_schema(default: dict[str, Any] | None) -> vol.Schema:
+    """Get config schema."""
+    if not default:
+        default = {}
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_NAME, default=default.get(CONF_NAME, DOMAIN.title())
+            ): text_selector(type=selector.TextSelectorType.TEXT),
+            vol.Required(
+                CONF_ICON, default=default.get(CONF_ICON, "mdi:memory")
+            ): selector.IconSelector(selector.IconSelectorConfig()),
+            vol.Required(CONF_HOST, default=default.get(CONF_HOST)): text_selector(
+                type=selector.TextSelectorType.URL
+            ),
+            vol.Required(
+                CONF_USERNAME, default=default.get(CONF_USERNAME)
+            ): text_selector(type=selector.TextSelectorType.TEXT),
+            vol.Required(
+                CONF_PASSWORD, default=default.get(CONF_PASSWORD)
+            ): text_selector(type=selector.TextSelectorType.PASSWORD),
+        }
+    )
 
-CONFIG_FLOW: dict[str, SchemaFlowFormStep | SchemaFlowMenuStep] = {
-    "user": SchemaFlowFormStep(CONFIG_SCHEMA, validate_user_input=validate_host),
-    "import": SchemaFlowFormStep(CONFIG_SCHEMA, validate_user_input=validate_host),
-}
 
+class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a Scrypted config flow."""
 
-class ConfigFlowHandler(SchemaConfigFlowHandler, domain=DOMAIN):
-    """Handle a config or options flow for Scrypted."""
+    VERSION = 1
 
-    config_flow = CONFIG_FLOW
+    def __init__(self) -> None:
+        """Initialize flow."""
+        self.data = {}
 
-    @callback
-    def async_config_entry_title(self, options: Mapping[str, Any]) -> str:
-        """Return config entry title."""
-        return cast(str, options[CONF_HOST])
+    async def validate_host(self, data: dict[str, Any]) -> bool:
+        """Validate that the host is valid."""
+        session = async_get_clientsession(self.hass, verify_ssl=False)
+        try:
+            await retrieve_token(data, session)
+        except ValueError:
+            return False
+
+        return True
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        """Handle user flow."""
+        errors = {}
+        if user_input is not None:
+            if await self.validate_host(user_input):
+                await self.async_set_unique_id(slugify(user_input[CONF_HOST]))
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=user_input[CONF_HOST], data=user_input
+                )
+            errors["base"] = "invalid_host_or_credentials"
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_get_config_schema(user_input),
+            errors=errors,
+        )
+
+    async_step_import = async_step_user
+
+    async def async_step_reauth(
+        self, _: dict[str, Any] | None
+    ) -> config_entries.FlowResult:
+        """Handle reauth flow."""
+        if CONF_PASSWORD not in self.context["data"]:
+            return await self.async_step_upgrade()
+        return await self.async_step_credentials()
+
+    async def _async_step_reauth(
+        self, step_id: str, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        """Handle reauth step."""
+        errors = {}
+        if user_input is not None:
+            if await self.validate_host(user_input):
+                unique_id = slugify(user_input[CONF_HOST])
+                config_entry = self.hass.config_entries.async_get_entry(
+                    self.context["entry_id"]
+                )
+                assert config_entry
+                if not any(
+                    entry
+                    for entry in self.hass.config_entries.async_entries(DOMAIN)
+                    if entry != config_entry and entry.unique_id == unique_id
+                ):
+                    self.hass.config_entries.async_update_entry(
+                        config_entry, data=user_input, options={}, unique_id=unique_id
+                    )
+                    self.hass.async_create_task(
+                        self.hass.config_entries.async_reload(config_entry.entry_id)
+                    )
+                    return self.async_abort(reason="success")
+
+                errors[CONF_NAME] = "already_configured"
+
+            if not errors:
+                errors["base"] = "invalid_host_or_credentials"
+
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=_get_config_schema(user_input or self.context["data"]),
+            errors=errors,
+        )
+
+    async def async_step_credentials(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        """Handle credentials step."""
+        return await self._async_step_reauth("credentials", user_input)
+
+    async def async_step_upgrade(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        """Handle upgrade step."""
+        return await self._async_step_reauth("upgrade", user_input)
