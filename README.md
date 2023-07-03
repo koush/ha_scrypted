@@ -1,7 +1,7 @@
 # Scrypted Custom Component for Home Assistant
 
-The Scrypted Custom Component for Home Assistant adds support managing Scrypted from your HA Dashboard, and creation of Scrypted NVR cards.
-This custom component is unnecessary if Scrypted was installed as a Home Assistant OS addon.
+The Scrypted Custom Component for Home Assistant adds support for managing Scrypted from your HA Dashboard and creating Scrypted NVR cards.
+
 
 <img width="100%" alt="image" src="https://github.com/koush/ha_scrypted/assets/73924/7c6fdd6a-8722-4c82-8581-632cdfa4476d">
 
@@ -19,7 +19,9 @@ After restarting Home Assistant you should see Scrypted in the Sidebar menu.
 
 ## Scrypted NVR Card Setup
 
-You can create Home Assistant cards for Scrypted NVR cameras. Note that this requires a valid Scrypted NVR license.
+You can create Home Assistant cards for Scrypted NVR cameras. 
+<br>Scrypted NVR cards feature low latency playback and some cameras feature two-way audio.
+Note that this requires a valid Scrypted NVR license.
 
 ### Obtain the Scrypted token and ID
 1. Install the Scrypted NVR plugin in Scrypted.
