@@ -17,6 +17,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import DOMAIN
 from .http import ScryptedView, retrieve_token
 
+from homeassistant.components import panel_custom, websocket_api
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Auth setup."""
@@ -68,13 +69,24 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
     hass.data.setdefault(DOMAIN, {})[token] = config_entry
 
+    custom_panel_config = {
+        "name": "ha-panel-scrypted",
+        "embed_iframe": True,
+        "trust_external": False,
+        "js_url": f"/api/{DOMAIN}/{token}/entrypoint.js",
+    }
+
+    panelconf = {}
+    panelconf["_panel_custom"] = custom_panel_config
+    panelconf["version"] = "1.0.0"
+
     async_register_built_in_panel(
         hass,
-        "iframe",
+        "custom",
         config_entry.data[CONF_NAME],
         config_entry.data[CONF_ICON],
-        f"{DOMAIN}_{config_entry.entry_id}",
-        {"url": f"/api/{DOMAIN}/{token}/"},
+        f"{DOMAIN}_{token}",
+        panelconf,
         require_admin=False,
     )
     # Set up token sensor

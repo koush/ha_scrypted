@@ -69,12 +69,29 @@ class ScryptedView(HomeAssistantView):
             raise HTTPBadRequest() from err
 
         return url
+    async def _handle_entrypoint(
+        self, request: web.Request, token: str, path: str
+    ) -> web.Response | web.StreamResponse:
+        body = f"""
+            function main() {{
+                const search = new URLSearchParams(window.parent.location.search);
+                const u = search.get('url') || '/api/scrypted/{token}/endpoint/@scrypted/core/public/';
+                window.location.href = u;
+                setTimeout(() => window.location.reload(), 100);
+            }}
+            main();
+        """
+        response = web.Response(body = body)
+        return response
 
     async def _handle(
         self, request: web.Request, token: str, path: str
     ) -> web.Response | web.StreamResponse | web.WebSocketResponse:
         """Route data to Hass.io ingress service."""
         try:
+            if path == 'entrypoint.js':
+                return await self._handle_entrypoint(request, token, path)
+
             # Websocket
             if _is_websocket(request):
                 return await self._handle_websocket(request, token, path)
