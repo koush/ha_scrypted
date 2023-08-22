@@ -28,8 +28,18 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
     """Retrieve token from Scrypted server."""
     username = data[CONF_USERNAME]
     password = data.get(CONF_PASSWORD, "")
+    host = data[CONF_HOST]
+    ipport = host.split(':')
+    if len(ipport) > 2:
+        raise Exception('invalid Scrypted host')
+    ip = ipport[0]
+    if len(ipport) == 2:
+        port = ipport[1]
+    else:
+        port = '10443'
+
     resp = await session.get(
-        f"https://{data[CONF_HOST]}/login",
+        f"https://{ip}:{port}/login",
         headers={"authorization": aiohttp.BasicAuth(username, password).encode()},
         json={"username": username},
         raise_for_status=True,
@@ -59,8 +69,17 @@ class ScryptedView(HomeAssistantView):
         """Create URL to service."""
         entry: ConfigEntry = self.hass.data[DOMAIN][token]
         host = entry.data[CONF_HOST]
+        ipport = host.split(':')
+        if len(ipport) > 2:
+            raise Exception('invalid Scrypted host')
+        ip = ipport[0]
+        if len(ipport) == 2:
+            port = ipport[1]
+        else:
+            port = '10443'
+
         base_path = "/"
-        url = f"https://{host}/{quote(path)}"
+        url = f"https://{ip}:{port}/{quote(path)}"
 
         try:
             if not URL(url).path.startswith(base_path):

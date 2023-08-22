@@ -9,7 +9,7 @@
     },
     "step": {
       "user": {
-        "description": "Enter your Scrypted server details (you must use an HTTPS endpoint) as well as a name and icon to use for the new panel on the UI.\n\nHost examples:\n- `scrypted.example.com`\n- `192.168.1.124:10443`",
+        "description": "Enter your Scrypted server details (you must use an HTTPS endpoint) as well as a name and icon to use for the new panel on the UI.\n\nHost examples:\n- `192.168.1.124`\n- `192.168.1.124:10443`",
         "data": {
           "host": "Host",
           "icon": "Icon",
