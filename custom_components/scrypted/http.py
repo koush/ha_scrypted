@@ -96,6 +96,8 @@ class ScryptedView(HomeAssistantView):
                 const search = new URLSearchParams(window.parent.location.search);
                 const u = search.get('url') || '/api/scrypted/{token}/endpoint/@scrypted/core/public/';
                 window.location.href = u;
+                // navigating within the companion app seems to require a window reload.
+                // maybe due to trapping url/history changes?
                 if (search.get('url'))
                     setTimeout(() => window.location.reload(), 100);
             }}
