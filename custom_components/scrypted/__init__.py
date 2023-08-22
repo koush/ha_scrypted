@@ -1,6 +1,8 @@
 """The Scrypted integration."""
 from __future__ import annotations
 
+from aiohttp import ClientConnectorError
+
 from typing import Any
 
 from homeassistant.components.frontend import (
@@ -11,6 +13,7 @@ from homeassistant.components.persistent_notification import async_create
 from homeassistant.config_entries import SOURCE_IMPORT, SOURCE_REAUTH, ConfigEntry
 from homeassistant.const import CONF_ICON, CONF_NAME, Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
@@ -64,8 +67,13 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         return _reauth(config_entry.options)
 
     session = async_get_clientsession(hass, verify_ssl=False)
-    if not (token := await retrieve_token(config_entry.data, session)):
-        return _reauth(config_entry.data)
+    try:
+        if not (token := await retrieve_token(config_entry.data, session)):
+            return _reauth(config_entry.data)
+    except Exception as e:
+        if isinstance(e, ClientConnectorError):
+            raise ConfigEntryNotReady("ClientConnectorError. Is the Scrypted host down? Retrying.")
+        raise e
 
     hass.data.setdefault(DOMAIN, {})[token] = config_entry
 
