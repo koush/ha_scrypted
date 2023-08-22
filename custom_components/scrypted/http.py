@@ -96,7 +96,8 @@ class ScryptedView(HomeAssistantView):
                 const search = new URLSearchParams(window.parent.location.search);
                 const u = search.get('url') || '/api/scrypted/{token}/endpoint/@scrypted/core/public/';
                 window.location.href = u;
-                setTimeout(() => window.location.reload(), 100);
+                if (search.get('url'))
+                    setTimeout(() => window.location.reload(), 100);
             }}
             main();
         """
