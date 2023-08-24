@@ -98,7 +98,7 @@ class ScryptedView(HomeAssistantView):
                 window.location.href = u;
                 // navigating within the companion app seems to require a window reload.
                 // maybe due to trapping url/history changes?
-                if (search.get('url'))
+                if (search.get('reload'))
                     setTimeout(() => window.location.reload(), 100);
             }}
             main();
