@@ -103,7 +103,9 @@ class ScryptedView(HomeAssistantView):
             }}
             main();
         """
-        response = web.Response(body = body)
+        response = web.Response(body = body, headers={
+            'Content-Type': 'text/javascript',
+        })
         return response
 
     async def _handle(
