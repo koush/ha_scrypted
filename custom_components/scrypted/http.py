@@ -6,6 +6,7 @@ import logging
 from collections.abc import Iterable
 from functools import lru_cache
 from ipaddress import ip_address
+import os
 from typing import Any
 from urllib.parse import quote
 
@@ -29,14 +30,14 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
     username = data[CONF_USERNAME]
     password = data.get(CONF_PASSWORD, "")
     host = data[CONF_HOST]
-    ipport = host.split(':')
+    ipport = host.split(":")
     if len(ipport) > 2:
-        raise Exception('invalid Scrypted host')
+        raise Exception("invalid Scrypted host")
     ip = ipport[0]
     if len(ipport) == 2:
         port = ipport[1]
     else:
-        port = '10443'
+        port = "10443"
 
     resp = await session.get(
         f"https://{ip}:{port}/login",
@@ -69,14 +70,14 @@ class ScryptedView(HomeAssistantView):
         """Create URL to service."""
         entry: ConfigEntry = self.hass.data[DOMAIN][token]
         host = entry.data[CONF_HOST]
-        ipport = host.split(':')
+        ipport = host.split(":")
         if len(ipport) > 2:
-            raise Exception('invalid Scrypted host')
+            raise Exception("invalid Scrypted host")
         ip = ipport[0]
         if len(ipport) == 2:
             port = ipport[1]
         else:
-            port = '10443'
+            port = "10443"
 
         base_path = "/"
         url = f"https://{ip}:{port}/{quote(path)}"
@@ -88,33 +89,53 @@ class ScryptedView(HomeAssistantView):
             raise HTTPBadRequest() from err
 
         return url
-    async def _handle_entrypoint(
-        self, request: web.Request, token: str, path: str
-    ) -> web.Response | web.StreamResponse:
-        body = f"""
-            function main() {{
-                const search = new URLSearchParams(window.parent.location.search);
-                const u = search.get('url') || '/api/scrypted/{token}/endpoint/@scrypted/core/public/';
-                window.location.href = u;
-                // navigating within the companion app seems to require a window reload.
-                // maybe due to trapping url/history changes?
-                if (search.get('reload'))
-                    setTimeout(() => window.location.reload(), 100);
-            }}
-            main();
-        """
-        response = web.Response(body = body, headers={
-            'Content-Type': 'text/javascript',
-        })
-        return response
 
     async def _handle(
         self, request: web.Request, token: str, path: str
     ) -> web.Response | web.StreamResponse | web.WebSocketResponse:
         """Route data to Hass.io ingress service."""
         try:
-            if path == 'entrypoint.js':
-                return await self._handle_entrypoint(request, token, path)
+            if path == "lit-core.min.js":
+                response = web.Response(
+                    body=open(
+                        os.path.join(os.path.dirname(__file__), "lit-core.min.js")
+                    ).read(),
+                    headers={
+                        "Content-Type": "text/javascript",
+                        "Cache-Control": "no-store, max-age=0",
+                    },
+                )
+                return response
+
+            if path == "entrypoint.js":
+                body = str(
+                        open(
+                            os.path.join(os.path.dirname(__file__), "entrypoint.js")
+                        ).read()
+                ).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                response = web.Response(
+                    body=body,
+                    headers={
+                        "Content-Type": "text/javascript",
+                        "Cache-Control": "no-store, max-age=0",
+                    },
+                )
+                return response
+
+            if path == "entrypoint.html":
+                body = str(
+                        open(
+                            os.path.join(os.path.dirname(__file__), "entrypoint.html")
+                        ).read()
+                ).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                response = web.Response(
+                    body=body,
+                    headers={
+                        "Content-Type": "text/html",
+                        "Cache-Control": "no-store, max-age=0",
+                    },
+                )
+                return response
 
             # Websocket
             if _is_websocket(request):

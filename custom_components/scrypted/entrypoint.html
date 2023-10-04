@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Scrypted></title>
+    <script>
+        function main() {
+            {
+                const search = new URLSearchParams(window.parent.location.search);
+                const u = search.get('url') || '/api/scrypted/__TOKEN__/endpoint/@scrypted/core/public/';
+                window.location.href = u;
+                // navigating within the companion app seems to require a window reload.
+                // maybe due to trapping url/history changes?
+                if (search.get('reload'))
+                    setTimeout(() => window.location.reload(), 100);
+            }
+        }
+        main();
+    </script>
+</head>
+
+</html>

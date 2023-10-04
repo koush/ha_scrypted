@@ -79,9 +79,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
     custom_panel_config = {
         "name": "ha-panel-scrypted",
-        "embed_iframe": True,
+        # "embed_iframe": True,
         "trust_external": False,
-        "js_url": f"/api/{DOMAIN}/{token}/entrypoint.js",
+        "module_url": f"/api/{DOMAIN}/{token}/entrypoint.js",
     }
 
     panelconf = {}
