@@ -38,7 +38,7 @@ def _get_config_schema(default: dict[str, Any] | None) -> vol.Schema:
                 CONF_ICON, default=default.get(CONF_ICON, "mdi:memory")
             ): selector.IconSelector(selector.IconSelectorConfig()),
             vol.Required(CONF_HOST, default=default.get(CONF_HOST)): text_selector(
-                type=selector.TextSelectorType.URL
+                type=selector.TextSelectorType.TEXT
             ),
             vol.Required(
                 CONF_USERNAME, default=default.get(CONF_USERNAME)
