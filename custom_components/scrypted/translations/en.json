@@ -14,7 +14,8 @@
                     "icon": "Icon",
                     "name": "Name",
                     "password": "Password",
-                    "username": "Username"
+                    "username": "Username",
+                    "scrypted_nvr": "Scrypted NVR Sidebar Icon"
                 },
                 "description": "The host/credentials combination is no longer working. Please update your host and/or credentials to continue."
             },
