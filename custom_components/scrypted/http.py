@@ -62,7 +62,6 @@ class ScryptedView(HomeAssistantView):
     name = "api:scrypted"
     url = "/api/scrypted/{token}/{path:.*}"
     requires_auth = False
-    body_promise = asyncio.get_event_loop().run_in_executor()
 
     def __init__(self, hass: HomeAssistant, session: aiohttp.ClientSession) -> None:
         """Initialize a Hass.io ingress view."""
