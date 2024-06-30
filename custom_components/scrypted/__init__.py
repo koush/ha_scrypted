@@ -100,7 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         require_admin=False,
     )
 
-    if config_entry.data[CONF_SCRYPTED_NVR]:
+    if CONF_SCRYPTED_NVR in config_entry.data and config_entry.data[CONF_SCRYPTED_NVR]:
         url = f"/api/scrypted/{token}/endpoint/@scrypted/nvr/public/"
         escaped = urllib.parse.quote_plus(url)
         async_register_built_in_panel(
