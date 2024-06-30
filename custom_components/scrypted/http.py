@@ -53,8 +53,15 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
 
     return resp_json["token"]
 
-body_future = asyncio.Future()
-threading.Thread(target=lambda: body_future.set_result(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js")).read())).start()
+lit_core = asyncio.Future()
+entrypoint_js = asyncio.Future()
+entrypoint_html = asyncio.Future()
+def load_files():
+    lit_core.set_result(str(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js")).read()))
+    entrypoint_js.set_result(str(open(os.path.join(os.path.dirname(__file__), "entrypoint.js")).read()))
+    entrypoint_html.set_result(open(os.path.join(os.path.dirname(__file__), "entrypoint.html")).read())
+    
+threading.Thread(target=load_files).start()
 
 class ScryptedView(HomeAssistantView):
     """Hass.io view to handle base part."""
@@ -100,7 +107,7 @@ class ScryptedView(HomeAssistantView):
         try:
             if path == "lit-core.min.js":
                 response = web.Response(
-                    body=await body_future,
+                    body=await lit_core,
                     headers={
                         "Content-Type": "text/javascript",
                         "Cache-Control": "no-store, max-age=0",
@@ -109,11 +116,7 @@ class ScryptedView(HomeAssistantView):
                 return response
 
             if path == "entrypoint.js":
-                body = str(
-                        open(
-                            os.path.join(os.path.dirname(__file__), "entrypoint.js")
-                        ).read()
-                ).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                body = (await entrypoint_js).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
                 response = web.Response(
                     body=body,
                     headers={
@@ -124,11 +127,7 @@ class ScryptedView(HomeAssistantView):
                 return response
 
             if path == "entrypoint.html":
-                body = str(
-                        open(
-                            os.path.join(os.path.dirname(__file__), "entrypoint.html")
-                        ).read()
-                ).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                body = (await entrypoint_html).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
                 response = web.Response(
                     body=body,
                     headers={
