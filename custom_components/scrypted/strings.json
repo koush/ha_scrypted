@@ -16,10 +16,7 @@
           "name": "Name",
           "password": "Password",
           "username": "Username",
-          "scrypted_nvr": {
-            "title": "Scrypted NVR Sidebar Icon",
-            "description": "The Scrypted sidebar icon will go directly to Scrypted NVR rather than the Scrypted Management Console."
-          }
+          "scrypted_nvr": "Scrypted NVR Sidebar Icon"
         }
       },
       "upgrade": {
