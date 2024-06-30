@@ -9,6 +9,7 @@ from ipaddress import ip_address
 import os
 from typing import Any
 from urllib.parse import quote
+import threading
 
 import aiohttp
 from aiohttp import ClientTimeout, hdrs, web
@@ -52,6 +53,8 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
 
     return resp_json["token"]
 
+body_future = asyncio.Future()
+threading.Thread(target=lambda: body_future.set_result(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js").read()))).start()
 
 class ScryptedView(HomeAssistantView):
     """Hass.io view to handle base part."""
@@ -59,6 +62,7 @@ class ScryptedView(HomeAssistantView):
     name = "api:scrypted"
     url = "/api/scrypted/{token}/{path:.*}"
     requires_auth = False
+    body_promise = asyncio.get_event_loop().run_in_executor()
 
     def __init__(self, hass: HomeAssistant, session: aiohttp.ClientSession) -> None:
         """Initialize a Hass.io ingress view."""
@@ -97,9 +101,7 @@ class ScryptedView(HomeAssistantView):
         try:
             if path == "lit-core.min.js":
                 response = web.Response(
-                    body=open(
-                        os.path.join(os.path.dirname(__file__), "lit-core.min.js")
-                    ).read(),
+                    body=await body_future,
                     headers={
                         "Content-Type": "text/javascript",
                         "Cache-Control": "no-store, max-age=0",
