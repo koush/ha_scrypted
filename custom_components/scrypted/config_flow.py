@@ -16,7 +16,7 @@ from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import slugify
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_SCRYPTED_NVR
 from .http import retrieve_token
 
 
@@ -46,6 +46,9 @@ def _get_config_schema(default: dict[str, Any] | None) -> vol.Schema:
             vol.Required(
                 CONF_PASSWORD, default=default.get(CONF_PASSWORD)
             ): text_selector(type=selector.TextSelectorType.PASSWORD),
+            vol.Optional(
+                CONF_SCRYPTED_NVR, default=False, description="Add Scrypted NVR to Sidebar"
+            ): bool,
         }
     )
 

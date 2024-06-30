@@ -1,6 +1,8 @@
 """The Scrypted integration."""
 from __future__ import annotations
 
+import urllib.parse
+
 from aiohttp import ClientConnectorError
 
 from typing import Any
@@ -17,7 +19,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_SCRYPTED_NVR
 from .http import ScryptedView, retrieve_token
 
 from homeassistant.components import panel_custom, websocket_api
@@ -97,6 +99,20 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         panelconf,
         require_admin=False,
     )
+
+    if config_entry.data[CONF_SCRYPTED_NVR]:
+        url = f"/api/scrypted/{token}/endpoint/@scrypted/nvr/public/"
+        escaped = urllib.parse.quote_plus(url)
+        async_register_built_in_panel(
+            hass,
+            "custom",
+            config_entry.data[CONF_NAME],
+            config_entry.data[CONF_ICON],
+            f"{DOMAIN}_{token}?url={escaped}",
+            panelconf,
+            require_admin=False,
+        )
+
     # Set up token sensor
     return await hass.config_entries.async_forward_entry_setup(
         config_entry, Platform.SENSOR
