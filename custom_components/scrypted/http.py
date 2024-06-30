@@ -54,7 +54,7 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
     return resp_json["token"]
 
 body_future = asyncio.Future()
-threading.Thread(target=lambda: body_future.set_result(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js").read()))).start()
+threading.Thread(target=lambda: body_future.set_result(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js")).read())).start()
 
 class ScryptedView(HomeAssistantView):
     """Hass.io view to handle base part."""
