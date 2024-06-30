@@ -60,23 +60,23 @@ class ScryptedView(HomeAssistantView):
     name = "api:scrypted"
     url = "/api/scrypted/{token}/{path:.*}"
     requires_auth = False
-    lit_core = asyncio.Future[str]()
-    entrypoint_js = asyncio.Future[str]()
-    entrypoint_html = asyncio.Future[str]()
 
     def __init__(self, hass: HomeAssistant, session: aiohttp.ClientSession) -> None:
         """Initialize a Hass.io ingress view."""
         self.hass = hass
         self._session = session
         hass.async_add_executor_job(None, lambda: self.load_files(hass.loop))
+        self.lit_core = asyncio.Future[str]()
+        self.entrypoint_js = asyncio.Future[str]()
+        self.entrypoint_html = asyncio.Future[str]()
 
     def load_files(self, loop: asyncio.AbstractEventLoop):
         lit_core = str(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js")).read())
         entrypoint_js = str(open(os.path.join(os.path.dirname(__file__), "entrypoint.js")).read())
         entrypoint_html = str(open(os.path.join(os.path.dirname(__file__), "entrypoint.html")).read())
-        loop.call_soon_threadsafe(self.lit_core.set_result, lit_core)
-        loop.call_soon_threadsafe(self.entrypoint_js.set_result, entrypoint_js)
-        loop.call_soon_threadsafe(self.entrypoint_html.set_result, entrypoint_html)
+        loop.call_soon_threadsafe(lambda: self.lit_core.set_result(lit_core))
+        loop.call_soon_threadsafe(lambda: self.entrypoint_js.set_result(entrypoint_js))
+        loop.call_soon_threadsafe(lambda: self.entrypoint_html.set_result(entrypoint_html))
 
     @lru_cache
     def _create_url(self, token: str, path: str) -> str:
