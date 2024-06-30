@@ -47,7 +47,7 @@ def _get_config_schema(default: dict[str, Any] | None) -> vol.Schema:
                 CONF_PASSWORD, default=default.get(CONF_PASSWORD)
             ): text_selector(type=selector.TextSelectorType.PASSWORD),
             vol.Optional(
-                CONF_SCRYPTED_NVR, default=False, description="Add Scrypted NVR to Sidebar"
+                CONF_SCRYPTED_NVR, default=False
             ): bool,
         }
     )

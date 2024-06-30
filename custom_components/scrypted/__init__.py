@@ -90,16 +90,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     panelconf["_panel_custom"] = custom_panel_config
     panelconf["version"] = "1.0.0"
 
-    async_register_built_in_panel(
-        hass,
-        "custom",
-        config_entry.data[CONF_NAME],
-        config_entry.data[CONF_ICON],
-        f"{DOMAIN}_{token}",
-        panelconf,
-        require_admin=False,
-    )
-
     if CONF_SCRYPTED_NVR in config_entry.data and config_entry.data[CONF_SCRYPTED_NVR]:
         url = f"/api/scrypted/{token}/endpoint/@scrypted/nvr/public/"
         escaped = urllib.parse.quote_plus(url)
@@ -109,6 +99,16 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             config_entry.data[CONF_NAME],
             config_entry.data[CONF_ICON],
             f"{DOMAIN}_{token}?url={escaped}",
+            panelconf,
+            require_admin=False,
+        )
+    else:
+        async_register_built_in_panel(
+            hass,
+            "custom",
+            config_entry.data[CONF_NAME],
+            config_entry.data[CONF_ICON],
+            f"{DOMAIN}_{token}",
             panelconf,
             require_admin=False,
         )
