@@ -65,10 +65,10 @@ class ScryptedView(HomeAssistantView):
         """Initialize a Hass.io ingress view."""
         self.hass = hass
         self._session = session
-        hass.async_add_executor_job(None, lambda: self.load_files(hass.loop))
         self.lit_core = asyncio.Future[str]()
         self.entrypoint_js = asyncio.Future[str]()
         self.entrypoint_html = asyncio.Future[str]()
+        hass.async_add_executor_job(None, lambda: self.load_files(hass.loop))
 
     def load_files(self, loop: asyncio.AbstractEventLoop):
         lit_core = str(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js")).read())
