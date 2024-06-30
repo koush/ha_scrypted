@@ -10,7 +10,7 @@
     "step": {
       "scrypted_nvr": {
         "title": "Scrypted NVR Sidebar Icon",
-        "description": "The Scrypted sidebar icon will go direclty to Scrypted NVR instead of the Scrypted Management Console."
+        "description": "The Scrypted sidebar icon will go directly to Scrypted NVR rather than the Scrypted Management Console."
       },
       "user": {
         "description": "Enter your Scrypted server details (you must use an HTTPS endpoint) as well as a name and icon to use for the new panel on the UI.\n\nHost examples:\n- `192.168.1.124`\n- `192.168.1.124:10443`",
