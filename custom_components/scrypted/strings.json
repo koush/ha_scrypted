@@ -4,14 +4,14 @@
       "already_configured": "Each Scrypted entry needs a unique name.",
       "invalid_host_or_credentials": "Unable to login to Scrypted server, either host or credentials are invalid."
     },
-    "scrypted_nvr": {
-      "title": "Scrypted NVR Sidebar Icon",
-      "description": "The Scrypted sidebar icon will go direclty to Scrypted NVR instead of the Scrypted Management Console."
-    },
     "abort": {
       "success": "Your config entry was successfully updated"
     },
     "step": {
+      "scrypted_nvr": {
+        "title": "Scrypted NVR Sidebar Icon",
+        "description": "The Scrypted sidebar icon will go direclty to Scrypted NVR instead of the Scrypted Management Console."
+      },
       "user": {
         "description": "Enter your Scrypted server details (you must use an HTTPS endpoint) as well as a name and icon to use for the new panel on the UI.\n\nHost examples:\n- `192.168.1.124`\n- `192.168.1.124:10443`",
         "data": {
