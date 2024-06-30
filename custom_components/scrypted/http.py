@@ -53,15 +53,6 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
 
     return resp_json["token"]
 
-lit_core = asyncio.Future()
-entrypoint_js = asyncio.Future()
-entrypoint_html = asyncio.Future()
-def load_files():
-    lit_core.set_result(str(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js")).read()))
-    entrypoint_js.set_result(str(open(os.path.join(os.path.dirname(__file__), "entrypoint.js")).read()))
-    entrypoint_html.set_result(open(os.path.join(os.path.dirname(__file__), "entrypoint.html")).read())
-    
-threading.Thread(target=load_files).start()
 
 class ScryptedView(HomeAssistantView):
     """Hass.io view to handle base part."""
@@ -69,11 +60,23 @@ class ScryptedView(HomeAssistantView):
     name = "api:scrypted"
     url = "/api/scrypted/{token}/{path:.*}"
     requires_auth = False
+    lit_core = asyncio.Future[str]()
+    entrypoint_js = asyncio.Future[str]()
+    entrypoint_html = asyncio.Future[str]()
 
     def __init__(self, hass: HomeAssistant, session: aiohttp.ClientSession) -> None:
         """Initialize a Hass.io ingress view."""
         self.hass = hass
         self._session = session
+        hass.async_add_executor_job(None, lambda: self.load_files(hass.loop))
+
+    def load_files(self, loop: asyncio.AbstractEventLoop):
+        lit_core = str(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js")).read())
+        entrypoint_js = str(open(os.path.join(os.path.dirname(__file__), "entrypoint.js")).read())
+        entrypoint_html = str(open(os.path.join(os.path.dirname(__file__), "entrypoint.html")).read())
+        loop.call_soon_threadsafe(self.lit_core.set_result, lit_core)
+        loop.call_soon_threadsafe(self.entrypoint_js.set_result, entrypoint_js)
+        loop.call_soon_threadsafe(self.entrypoint_html.set_result, entrypoint_html)
 
     @lru_cache
     def _create_url(self, token: str, path: str) -> str:
@@ -107,7 +110,7 @@ class ScryptedView(HomeAssistantView):
         try:
             if path == "lit-core.min.js":
                 response = web.Response(
-                    body=await lit_core,
+                    body=await self.lit_core,
                     headers={
                         "Content-Type": "text/javascript",
                         "Cache-Control": "no-store, max-age=0",
@@ -116,7 +119,7 @@ class ScryptedView(HomeAssistantView):
                 return response
 
             if path == "entrypoint.js":
-                body = (await entrypoint_js).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                body = (await self.entrypoint_js).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
                 response = web.Response(
                     body=body,
                     headers={
@@ -127,7 +130,7 @@ class ScryptedView(HomeAssistantView):
                 return response
 
             if path == "entrypoint.html":
-                body = (await entrypoint_html).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                body = (await self.entrypoint_html).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
                 entry: ConfigEntry = self.hass.data[DOMAIN][token]
                 if CONF_SCRYPTED_NVR in entry.data and entry.data[CONF_SCRYPTED_NVR]:
                     body = body.replace("core", "nvr")
