@@ -98,7 +98,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             "custom",
             config_entry.data[CONF_NAME],
             config_entry.data[CONF_ICON],
-            f"{DOMAIN}_{token}?url={escaped}",
+            f"/{DOMAIN}_{token}?url={escaped}",
             panelconf,
             require_admin=False,
         )
