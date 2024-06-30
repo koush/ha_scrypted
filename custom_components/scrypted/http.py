@@ -21,7 +21,7 @@ from homeassistant.core import HomeAssistant
 from multidict import CIMultiDict
 from yarl import URL
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_SCRYPTED_NVR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -128,6 +128,10 @@ class ScryptedView(HomeAssistantView):
 
             if path == "entrypoint.html":
                 body = (await entrypoint_html).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                entry: ConfigEntry = self.hass.data[DOMAIN][token]
+                if CONF_SCRYPTED_NVR in entry.data and entry.data[CONF_SCRYPTED_NVR]:
+                    body = body.replace("core", "nvr")
+
                 response = web.Response(
                     body=body,
                     headers={
