@@ -161,7 +161,7 @@ class ScryptedView(HomeAssistantView):
     put = _handle
     delete = _handle
     patch = _handle
-    options = _handle
+    # options = _handle
 
     async def _handle_websocket(
         self, request: web.Request, token: str, path: str
