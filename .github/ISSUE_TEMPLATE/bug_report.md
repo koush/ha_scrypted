@@ -7,6 +7,8 @@ assignees: ''
 
 ---
 
+- [ ] I have searched the issue tracker for an existing issue.
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 
