@@ -35,7 +35,7 @@
                     "name": "Name",
                     "password": "Password",
                     "username": "Username",
-                    "scrypted_nvr": "Scrypted NVR Sidebar Icon"
+                    "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR."
                 },
                 "description": "Enter your Scrypted server details (you must use an HTTPS endpoint) as well as a name and icon to use for the new panel on the UI.\n\nHost examples:\n- `192.168.1.124`\n- `192.168.1.124:10443`"
             }
