@@ -16,7 +16,7 @@
           "name": "Name",
           "password": "Password",
           "username": "Username",
-          "scrypted_nvr": "Scrypted NVR Sidebar Icon"
+          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR."
         }
       },
       "upgrade": {
