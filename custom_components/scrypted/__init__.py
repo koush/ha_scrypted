@@ -99,9 +99,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     )
 
     # Set up token sensor
-    return await hass.config_entries.async_forward_entry_setup(
+    await hass.config_entries.async_forward_entry_setup(
         config_entry, Platform.SENSOR
     )
+    return True
 
 
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
