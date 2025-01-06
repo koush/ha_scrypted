@@ -22,6 +22,11 @@ from .http import ScryptedView, retrieve_token
 
 from homeassistant.components import panel_custom, websocket_api
 
+
+PLATFORMS = [
+    Platform.SENSOR
+]
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Auth setup."""
     session = async_get_clientsession(hass, verify_ssl=False)
@@ -99,9 +104,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     )
 
     # Set up token sensor
-    return await hass.config_entries.async_forward_entry_setup(
-        config_entry, Platform.SENSOR
+    await hass.config_entries.async_forward_entry_setups(
+        config_entry, PLATFORMS
     )
+    return True
 
 
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
