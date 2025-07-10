@@ -1,7 +1,7 @@
 {
   "domain": "scrypted",
   "name": "Scrypted",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "codeowners": ["@koush"],
   "config_flow": true,
   "dependencies": ["http"],
