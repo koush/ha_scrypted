@@ -177,7 +177,7 @@ class ScryptedView(HomeAssistantView):
             req_protocols = ()
 
         ws_server = web.WebSocketResponse(
-            protocols=req_protocols, autoclose=False, autoping=False
+            protocols=req_protocols, autoclose=False, autoping=False, max_msg_size=4194304 * 4
         )
         await ws_server.prepare(request)
 
@@ -198,6 +198,7 @@ class ScryptedView(HomeAssistantView):
             protocols=req_protocols,
             autoclose=False,
             autoping=False,
+            max_msg_size=4194304 * 4
         ) as ws_client:
             # Proxy requests
             await asyncio.wait(
