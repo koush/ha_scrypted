@@ -1,12 +1,10 @@
 """The Scrypted integration."""
-from __future__ import annotations
 
 import logging
 from typing import Any
 
 from aiohttp import ClientConnectorError
 
-from homeassistant.components import panel_custom, websocket_api
 from homeassistant.components.frontend import (
     async_register_built_in_panel,
     async_remove_panel,
