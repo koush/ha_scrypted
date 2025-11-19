@@ -27,7 +27,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN
+from .const import CONF_AUTO_REGISTER_RESOURCES, DOMAIN
 from .http import ScryptedView, retrieve_token
 
 PLATFORMS = [
@@ -211,6 +211,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
                     "source": SOURCE_REAUTH,
                     "entry_id": config_entry.entry_id,
                     "data": dict(data),
+                    "options": dict(config_entry.options),
                 },
             )
         )
@@ -229,7 +230,25 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         raise e
 
     hass.data.setdefault(DOMAIN, {})[token] = config_entry
-    await _async_register_lovelace_resource(hass, token, config_entry.entry_id)
+
+    auto_register = config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES)
+    if auto_register is None:
+        auto_register = config_entry.data.get(CONF_AUTO_REGISTER_RESOURCES, False)
+        new_data = {
+            key: value
+            for key, value in config_entry.data.items()
+            if key != CONF_AUTO_REGISTER_RESOURCES
+        }
+        new_options = {
+            **config_entry.options,
+            CONF_AUTO_REGISTER_RESOURCES: auto_register,
+        }
+        hass.config_entries.async_update_entry(
+            config_entry, data=new_data, options=new_options
+        )
+
+    if auto_register:
+        await _async_register_lovelace_resource(hass, token, config_entry.entry_id)
 
     custom_panel_config = {
         "name": "ha-panel-scrypted",

@@ -16,7 +16,11 @@ from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import slugify
 
-from .const import DOMAIN, CONF_SCRYPTED_NVR
+from .const import (
+    CONF_AUTO_REGISTER_RESOURCES,
+    CONF_SCRYPTED_NVR,
+    DOMAIN,
+)
 from .http import retrieve_token
 
 
@@ -25,10 +29,15 @@ def text_selector(type: selector.TextSelectorType) -> selector.TextSelector:
     return selector.TextSelector(selector.TextSelectorConfig(type=type))
 
 
-def _get_config_schema(default: dict[str, Any] | None) -> vol.Schema:
+def _get_config_schema(
+    default: dict[str, Any] | None, auto_register_default: bool = False
+) -> vol.Schema:
     """Get config schema."""
     if not default:
         default = {}
+    auto_register_value = default.get(
+        CONF_AUTO_REGISTER_RESOURCES, auto_register_default
+    )
     return vol.Schema(
         {
             vol.Required(
@@ -49,6 +58,9 @@ def _get_config_schema(default: dict[str, Any] | None) -> vol.Schema:
             vol.Optional(
                 CONF_SCRYPTED_NVR, default=False
             ): bool,
+            vol.Required(
+                CONF_AUTO_REGISTER_RESOURCES, default=auto_register_value
+            ): bool,
         }
     )
 
@@ -65,7 +77,13 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def validate_input(self, data: dict[str, Any]) -> bool:
         """Validate that the host is valid."""
         session = async_get_clientsession(self.hass, verify_ssl=False)
-        for key in (CONF_HOST, CONF_ICON, CONF_NAME, CONF_USERNAME):
+        for key in (
+            CONF_HOST,
+            CONF_ICON,
+            CONF_NAME,
+            CONF_USERNAME,
+            CONF_AUTO_REGISTER_RESOURCES,
+        ):
             if key not in data:
                 return False
         try:
@@ -91,7 +109,9 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_get_config_schema(user_input),
+            data_schema=_get_config_schema(
+                user_input, self._async_auto_register_default(user_input)
+            ),
             errors=errors,
         )
 
@@ -135,9 +155,12 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not errors:
                 errors["base"] = "invalid_host_or_credentials"
 
+        defaults = user_input or self.context["data"]
         return self.async_show_form(
             step_id=step_id,
-            data_schema=_get_config_schema(user_input or self.context["data"]),
+            data_schema=_get_config_schema(
+                defaults, self._async_auto_register_default(defaults)
+            ),
             errors=errors,
         )
 
@@ -152,3 +175,69 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.FlowResult:
         """Handle upgrade step."""
         return await self._async_step_reauth("upgrade", user_input)
+
+    def _async_auto_register_default(
+        self, data: dict[str, Any] | None
+    ) -> bool:
+        """Determine the auto register default."""
+        if data and CONF_AUTO_REGISTER_RESOURCES in data:
+            return data[CONF_AUTO_REGISTER_RESOURCES]
+        if options := self.context.get("options"):
+            return options.get(CONF_AUTO_REGISTER_RESOURCES, False)
+        return False
+
+
+class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle Scrypted options."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        """Initialize the options flow."""
+        return await self.async_step_general(user_input)
+
+    async def async_step_general(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        """Handle general options."""
+        if user_input is not None:
+            data = {
+                **self.config_entry.options,
+                CONF_AUTO_REGISTER_RESOURCES: user_input[
+                    CONF_AUTO_REGISTER_RESOURCES
+                ],
+            }
+            self.hass.async_create_task(
+                self.hass.config_entries.async_reload(
+                    self.config_entry.entry_id
+                )
+            )
+            return self.async_create_entry(data=data)
+
+        current = self.config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES)
+        if current is None:
+            current = self.config_entry.data.get(
+                CONF_AUTO_REGISTER_RESOURCES, False
+            )
+
+        return self.async_show_form(
+            step_id="general",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_AUTO_REGISTER_RESOURCES, default=current
+                    ): bool
+                }
+            ),
+        )
+
+
+async def async_get_options_flow(
+    config_entry: config_entries.ConfigEntry,
+) -> ScryptedOptionsFlowHandler:
+    """Create the options flow."""
+    return ScryptedOptionsFlowHandler(config_entry)
