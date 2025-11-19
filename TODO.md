@@ -17,3 +17,12 @@
 4. Improve card configuration UX
    - Open an issue describing how the cards can adopt Home Assistant's graphical card configuration flow per the guidance in https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card#graphical-card-configuration.
    - The cards are simple enough that the built-in form editor should work once the schema is defined, making the setup more approachable.
+
+5. Make the integration NVR-aware
+   - Determine whether the connected Scrypted instance has an active NVR subscription (via its upstream API) so we can tailor functionality accordingly.
+   - Use that signal to gate features like Lovelace resource auto-registration, exposing them only when NVR is enabled.
+   - Surface the subscription state in the UI so users know why certain features are or are not available.
+
+6. Add linting and formatting to CI/pre-commit
+   - Introduce ruff for formatting, linting, and type checking plus isort for deterministic import ordering.
+   - Provide configuration files, add GitHub Actions workflows to enforce them, and wire up pre-commit hooks so contributors can run the checks locally before committing.
