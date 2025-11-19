@@ -30,7 +30,11 @@ def text_selector(type: selector.TextSelectorType) -> selector.TextSelector:
 
 
 def _get_config_schema(
-    default: dict[str, Any] | None, auto_register_default: bool = False
+    default: dict[str, Any] | None,
+    *,
+    auto_register_default: bool = False,
+    include_nvr: bool = False,
+    include_auto_register: bool = False,
 ) -> vol.Schema:
     """Get config schema."""
     if not default:
@@ -38,31 +42,36 @@ def _get_config_schema(
     auto_register_value = default.get(
         CONF_AUTO_REGISTER_RESOURCES, auto_register_default
     )
-    return vol.Schema(
-        {
-            vol.Required(
-                CONF_NAME, default=default.get(CONF_NAME, DOMAIN.title())
-            ): text_selector(type=selector.TextSelectorType.TEXT),
-            vol.Required(
-                CONF_ICON, default=default.get(CONF_ICON, "mdi:memory")
-            ): selector.IconSelector(selector.IconSelectorConfig()),
-            vol.Required(CONF_HOST, default=default.get(CONF_HOST)): text_selector(
-                type=selector.TextSelectorType.TEXT
-            ),
-            vol.Required(
-                CONF_USERNAME, default=default.get(CONF_USERNAME)
-            ): text_selector(type=selector.TextSelectorType.TEXT),
-            vol.Required(
-                CONF_PASSWORD, default=default.get(CONF_PASSWORD)
-            ): text_selector(type=selector.TextSelectorType.PASSWORD),
+    schema: dict[Any, Any] = {
+        vol.Required(
+            CONF_NAME, default=default.get(CONF_NAME, DOMAIN.title())
+        ): text_selector(type=selector.TextSelectorType.TEXT),
+        vol.Required(
+            CONF_ICON, default=default.get(CONF_ICON, "mdi:memory")
+        ): selector.IconSelector(selector.IconSelectorConfig()),
+        vol.Required(CONF_HOST, default=default.get(CONF_HOST)): text_selector(
+            type=selector.TextSelectorType.TEXT
+        ),
+        vol.Required(
+            CONF_USERNAME, default=default.get(CONF_USERNAME)
+        ): text_selector(type=selector.TextSelectorType.TEXT),
+        vol.Required(
+            CONF_PASSWORD, default=default.get(CONF_PASSWORD)
+        ): text_selector(type=selector.TextSelectorType.PASSWORD),
+    }
+    if include_nvr:
+        schema[
             vol.Optional(
-                CONF_SCRYPTED_NVR, default=False
-            ): bool,
+                CONF_SCRYPTED_NVR, default=default.get(CONF_SCRYPTED_NVR, False)
+            )
+        ] = bool
+    if include_auto_register:
+        schema[
             vol.Required(
                 CONF_AUTO_REGISTER_RESOURCES, default=auto_register_value
-            ): bool,
-        }
-    )
+            )
+        ] = bool
+    return vol.Schema(schema)
 
 
 class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -77,13 +86,15 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def validate_input(self, data: dict[str, Any]) -> bool:
         """Validate that the host is valid."""
         session = async_get_clientsession(self.hass, verify_ssl=False)
-        for key in (
+        required_keys = [
             CONF_HOST,
             CONF_ICON,
             CONF_NAME,
             CONF_USERNAME,
-            CONF_AUTO_REGISTER_RESOURCES,
-        ):
+        ]
+        if CONF_AUTO_REGISTER_RESOURCES in data:
+            required_keys.append(CONF_AUTO_REGISTER_RESOURCES)
+        for key in required_keys:
             if key not in data:
                 return False
         try:
@@ -110,7 +121,10 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=_get_config_schema(
-                user_input, self._async_auto_register_default(user_input)
+                user_input,
+                auto_register_default=self._async_auto_register_default(user_input),
+                include_nvr=True,
+                include_auto_register=True,
             ),
             errors=errors,
         )
@@ -156,10 +170,16 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_host_or_credentials"
 
         defaults = user_input or self.context["data"]
+        include_auto = step_id != "credentials"
+        include_nvr = step_id != "credentials"
+
         return self.async_show_form(
             step_id=step_id,
             data_schema=_get_config_schema(
-                defaults, self._async_auto_register_default(defaults)
+                defaults,
+                auto_register_default=self._async_auto_register_default(defaults),
+                include_nvr=include_nvr,
+                include_auto_register=include_auto,
             ),
             errors=errors,
         )

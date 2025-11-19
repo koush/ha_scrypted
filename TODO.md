@@ -26,3 +26,7 @@
 6. Add linting and formatting to CI/pre-commit
    - Introduce ruff for formatting, linting, and type checking plus isort for deterministic import ordering.
    - Provide configuration files, add GitHub Actions workflows to enforce them, and wire up pre-commit hooks so contributors can run the checks locally before committing.
+
+7. Move panel configuration into the options flow
+   - The credentials reauth step currently collects the panel name/icon alongside passwords; move those UI fields into the options flow so credential updates only prompt for authentication details.
+   - Once the options flow exposes these fields, remove them from the credentials step to reduce user confusion.
