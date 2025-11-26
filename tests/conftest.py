@@ -1,12 +1,12 @@
-"""Common fixtures and plugin configuration for Scrypted tests."""
+"""Shared pytest fixtures for Scrypted tests."""
 
-from __future__ import annotations
-
+import importlib
 from pathlib import Path
-from types import SimpleNamespace
 import sys
+from types import SimpleNamespace
 
 import pytest
+from homeassistant import loader
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
@@ -16,6 +16,14 @@ if str(ROOT) not in sys.path:
 
 import custom_components.scrypted as scrypted  # noqa: E402
 from custom_components.scrypted import config_flow  # noqa: E402
+from custom_components.scrypted.const import DOMAIN  # noqa: E402
+
+@pytest.fixture(autouse=True)
+def _register_scrypted_flow(hass):
+    """Register the config flow module so HA can resolve it."""
+
+    module = importlib.import_module("custom_components.scrypted.config_flow")
+    hass.data[loader.DATA_COMPONENTS][f"{DOMAIN}.config_flow"] = module
 
 
 @pytest.fixture(autouse=True)

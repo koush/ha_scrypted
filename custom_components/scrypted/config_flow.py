@@ -4,6 +4,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.core import callback
 from homeassistant.const import (
     CONF_HOST,
     CONF_ICON,
@@ -206,6 +207,16 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return False
 
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Return the options flow handler for this config entry."""
+
+        return ScryptedOptionsFlowHandler(config_entry)
+
+
 class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle Scrypted options."""
 
@@ -229,18 +240,22 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_AUTO_REGISTER_RESOURCES: user_input[
                     CONF_AUTO_REGISTER_RESOURCES
                 ],
+                CONF_SCRYPTED_NVR: user_input[CONF_SCRYPTED_NVR],
             }
-            self.hass.async_create_task(
-                self.hass.config_entries.async_reload(
-                    self.config_entry.entry_id
-                )
-            )
             return self.async_create_entry(data=data)
 
-        current = self.config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES)
-        if current is None:
-            current = self.config_entry.data.get(
+        current_auto = self.config_entry.options.get(
+            CONF_AUTO_REGISTER_RESOURCES
+        )
+        if current_auto is None:
+            current_auto = self.config_entry.data.get(
                 CONF_AUTO_REGISTER_RESOURCES, False
+            )
+
+        current_nvr = self.config_entry.options.get(CONF_SCRYPTED_NVR)
+        if current_nvr is None:
+            current_nvr = self.config_entry.data.get(
+                CONF_SCRYPTED_NVR, False
             )
 
         return self.async_show_form(
@@ -248,8 +263,9 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        CONF_AUTO_REGISTER_RESOURCES, default=current
-                    ): bool
+                        CONF_AUTO_REGISTER_RESOURCES, default=current_auto
+                    ): bool,
+                    vol.Required(CONF_SCRYPTED_NVR, default=current_nvr): bool,
                 }
             ),
         )
@@ -258,5 +274,5 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
 async def async_get_options_flow(
     config_entry: config_entries.ConfigEntry,
 ) -> ScryptedOptionsFlowHandler:
-    """Create the options flow."""
-    return ScryptedOptionsFlowHandler(config_entry)
+    """Create the options flow (legacy entry point)."""
+    return ScryptedConfigFlow.async_get_options_flow(config_entry)

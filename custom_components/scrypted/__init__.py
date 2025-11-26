@@ -25,7 +25,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_AUTO_REGISTER_RESOURCES, DOMAIN
+from .const import CONF_AUTO_REGISTER_RESOURCES, CONF_SCRYPTED_NVR, DOMAIN
 from .http import ScryptedView, retrieve_token
 
 PLATFORMS = [
@@ -34,6 +34,10 @@ PLATFORMS = [
 
 _LOGGER = logging.getLogger(__name__)
 _RESOURCE_TRACKER = f"{DOMAIN}_lovelace_resources"
+_OPTION_DEFAULTS = {
+    CONF_AUTO_REGISTER_RESOURCES: False,
+    CONF_SCRYPTED_NVR: False,
+}
 
 
 def _get_card_resource_definitions(token: str) -> list[tuple[str, str]]:
@@ -202,13 +206,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     @callback
     def _reauth(data: dict[str, Any]) -> bool:
         """Start Reauth flow."""
+        payload = {**config_entry.data, **config_entry.options, **data}
         hass.async_create_task(
             hass.config_entries.flow.async_init(
                 DOMAIN,
                 context={
                     "source": SOURCE_REAUTH,
                     "entry_id": config_entry.entry_id,
-                    "data": dict(data),
+                    "data": payload,
                     "options": dict(config_entry.options),
                 },
             )
@@ -217,6 +222,13 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
     if not config_entry.data:
         return _reauth(config_entry.options)
+
+    changed = await _async_ensure_entry_options(hass, config_entry)
+    if changed:
+        hass.async_create_task(
+            hass.config_entries.async_reload(config_entry.entry_id)
+        )
+        return False
 
     session = async_get_clientsession(hass, verify_ssl=False)
     try:
@@ -228,24 +240,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         raise e
 
     hass.data.setdefault(DOMAIN, {})[token] = config_entry
+    config_entry.async_on_unload(
+        config_entry.add_update_listener(_async_update_listener)
+    )
 
-    auto_register = config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES)
-    if auto_register is None:
-        auto_register = config_entry.data.get(CONF_AUTO_REGISTER_RESOURCES, False)
-        new_data = {
-            key: value
-            for key, value in config_entry.data.items()
-            if key != CONF_AUTO_REGISTER_RESOURCES
-        }
-        new_options = {
-            **config_entry.options,
-            CONF_AUTO_REGISTER_RESOURCES: auto_register,
-        }
-        hass.config_entries.async_update_entry(
-            config_entry, data=new_data, options=new_options
-        )
-
-    if auto_register:
+    if config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES):
         await _async_register_lovelace_resource(hass, token, config_entry.entry_id)
 
     custom_panel_config = {
@@ -291,3 +290,38 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
         hass.data.pop(DOMAIN)
     async_remove_panel(hass, f"{DOMAIN}_{config_entry.entry_id}")
     return True
+
+
+async def _async_update_listener(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+    """Ensure option keys stay in the options dict and reload on change."""
+
+    await _async_ensure_entry_options(hass, config_entry)
+    hass.async_create_task(
+        hass.config_entries.async_reload(config_entry.entry_id)
+    )
+
+
+async def _async_ensure_entry_options(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Move option fields into options and ensure defaults exist."""
+
+    data = dict(config_entry.data)
+    options = dict(config_entry.options)
+    changed = False
+
+    for key, default in _OPTION_DEFAULTS.items():
+        if key in data:
+            if key not in options:
+                options[key] = data[key]
+            data.pop(key)
+            changed = True
+
+        if key not in options:
+            options[key] = default
+            changed = True
+
+    if changed:
+        hass.config_entries.async_update_entry(
+            config_entry, data=data, options=options
+        )
+
+    return changed

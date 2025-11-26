@@ -1,17 +1,12 @@
+"""Tests for the Scrypted integration setup logic."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from aiohttp import ClientConnectorError
-
-import custom_components.scrypted as scrypted
-from custom_components.scrypted.const import (
-    CONF_AUTO_REGISTER_RESOURCES,
-    CONF_SCRYPTED_NVR,
-    DOMAIN,
-)
 from homeassistant.components.lovelace.const import DOMAIN as LL_DOMAIN
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.const import (
@@ -23,6 +18,13 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
+
+import custom_components.scrypted as scrypted
+from custom_components.scrypted.const import (
+    CONF_AUTO_REGISTER_RESOURCES,
+    CONF_SCRYPTED_NVR,
+    DOMAIN,
+)
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -64,15 +66,18 @@ class FakeYAMLResources(_BaseResources):
 
 @pytest.fixture(autouse=True)
 def patch_resource_classes(monkeypatch):
+    """Patch Lovelace resource helpers to use fakes."""
     monkeypatch.setattr(scrypted, "ResourceStorageCollection", FakeStorageResources)
     monkeypatch.setattr(scrypted, "ResourceYAMLCollection", FakeYAMLResources)
 
 
 def _attach_resources(hass, resources):
+    """Attach fake Lovelace resources to hass data."""
     hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
 
 
 def test_get_card_resource_definitions():
+    """Test case for test_get_card_resource_definitions."""
     resources = scrypted._get_card_resource_definitions("tok")
     assert resources[0][1].endswith(".js")
     assert resources[1][1].endswith(".css")
@@ -80,12 +85,14 @@ def test_get_card_resource_definitions():
 
 @pytest.mark.asyncio
 async def test_register_no_lovelace_data_is_noop(hass):
+    """Test case for test_register_no_lovelace_data_is_noop."""
     await scrypted._async_register_lovelace_resource(hass, "tok", "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
 
 
 @pytest.mark.asyncio
 async def test_register_storage_creates_resources(hass):
+    """Test case for test_register_storage_creates_resources."""
     resources = FakeStorageResources()
     _attach_resources(hass, resources)
     await scrypted._async_register_lovelace_resource(hass, "tok", "entry")
@@ -100,6 +107,7 @@ async def test_register_storage_creates_resources(hass):
 
 @pytest.mark.asyncio
 async def test_register_storage_skips_existing(hass):
+    """Test case for test_register_storage_skips_existing."""
     base = "/api/scrypted/token/endpoint/@scrypted/nvr/assets/web-components"
     resources = FakeStorageResources(
         [
@@ -115,6 +123,7 @@ async def test_register_storage_skips_existing(hass):
 
 @pytest.mark.asyncio
 async def test_register_yaml_warns(hass, caplog):
+    """Test case for test_register_yaml_warns."""
     _attach_resources(hass, FakeYAMLResources())
     await scrypted._async_register_lovelace_resource(hass, "tok", "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
@@ -123,6 +132,7 @@ async def test_register_yaml_warns(hass, caplog):
 
 @pytest.mark.asyncio
 async def test_unregister_storage_removes_resources(hass):
+    """Test case for test_unregister_storage_removes_resources."""
     base = "/api/scrypted/tok/endpoint/@scrypted/nvr/assets/web-components"
     resources = FakeStorageResources(
         [
@@ -141,6 +151,7 @@ async def test_unregister_storage_removes_resources(hass):
 
 @pytest.mark.asyncio
 async def test_unregister_empty_tracked_urls_cleans_tracker(hass):
+    """Test case for test_unregister_empty_tracked_urls_cleans_tracker."""
     hass.data[scrypted._RESOURCE_TRACKER] = {"entry": set()}
     await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
@@ -148,6 +159,7 @@ async def test_unregister_empty_tracked_urls_cleans_tracker(hass):
 
 @pytest.mark.asyncio
 async def test_unregister_without_lovelace_data_cleans_tracker(hass):
+    """Test case for test_unregister_without_lovelace_data_cleans_tracker."""
     hass.data[scrypted._RESOURCE_TRACKER] = {"entry": {"/missing"}}
     await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
@@ -155,12 +167,14 @@ async def test_unregister_without_lovelace_data_cleans_tracker(hass):
 
 @pytest.mark.asyncio
 async def test_unregister_without_tracker_is_noop(hass):
+    """Test case for test_unregister_without_tracker_is_noop."""
     await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
 
 
 @pytest.mark.asyncio
 async def test_unregister_logs_missing_resources(hass, caplog):
+    """Test case for test_unregister_logs_missing_resources."""
     base = "/api/scrypted/tok/endpoint/@scrypted/nvr/assets/web-components"
     resources = FakeStorageResources([{CONF_ID: 10, CONF_URL: f"{base}.js"}])
     _attach_resources(hass, resources)
@@ -174,6 +188,7 @@ async def test_unregister_logs_missing_resources(hass, caplog):
 
 @pytest.mark.asyncio
 async def test_unregister_yaml_resources_skip_deletion(hass):
+    """Test case for test_unregister_yaml_resources_skip_deletion."""
     base = "/api/scrypted/tok/endpoint/@scrypted/nvr/assets/web-components"
     resources = FakeYAMLResources(
         [
@@ -191,6 +206,7 @@ async def test_unregister_yaml_resources_skip_deletion(hass):
 
 @pytest.mark.asyncio
 async def test_async_setup_without_domain_config(hass, monkeypatch):
+    """Test case for test_async_setup_without_domain_config."""
     registered = {}
     hass.http = SimpleNamespace(register_view=lambda view: registered.setdefault("view", view))
     monkeypatch.setattr(scrypted, "ScryptedView", lambda hass, session: "view")
@@ -201,6 +217,7 @@ async def test_async_setup_without_domain_config(hass, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_setup_imports_yaml_config(hass, monkeypatch):
+    """Test case for test_async_setup_imports_yaml_config."""
     hass.http = SimpleNamespace(register_view=lambda view: None)
     monkeypatch.setattr(scrypted, "ScryptedView", lambda hass, session: None)
     notifications = {}
@@ -220,6 +237,7 @@ async def test_async_setup_imports_yaml_config(hass, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_registers_resources_and_panel(hass, monkeypatch):
+    """Test case for test_async_setup_entry_registers_resources_and_panel."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -227,26 +245,34 @@ async def test_async_setup_entry_registers_resources_and_panel(hass, monkeypatch
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: True,
             CONF_SCRYPTED_NVR: False,
         },
-        options={CONF_AUTO_REGISTER_RESOURCES: True},
     )
     entry.add_to_hass(hass)
     register_resource = AsyncMock()
     forward_setups = AsyncMock()
+    reload_mock = AsyncMock()
     monkeypatch.setattr(scrypted, "_async_register_lovelace_resource", register_resource)
     monkeypatch.setattr(scrypted, "async_register_built_in_panel", lambda *args, **kwargs: kwargs)
     monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", forward_setups)
+    monkeypatch.setattr(hass.config_entries, "async_reload", reload_mock)
     result = await scrypted.async_setup_entry(hass, entry)
     await hass.async_block_till_done()
     assert result is True
     register_resource.assert_awaited()
     forward_setups.assert_awaited()
     assert hass.data[DOMAIN]["token"] == entry
+    assert entry.options[CONF_SCRYPTED_NVR] is False
+    assert CONF_SCRYPTED_NVR not in entry.data
+    assert not reload_mock.called
 
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_moves_auto_register_flag(hass, monkeypatch):
+    """Test case for test_async_setup_entry_moves_auto_register_flag."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -255,21 +281,28 @@ async def test_async_setup_entry_moves_auto_register_flag(hass, monkeypatch):
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
             CONF_AUTO_REGISTER_RESOURCES: True,
+            CONF_SCRYPTED_NVR: True,
         },
     )
     entry.add_to_hass(hass)
     register_resource = AsyncMock()
+    reload_mock = AsyncMock()
     monkeypatch.setattr(scrypted, "_async_register_lovelace_resource", register_resource)
     monkeypatch.setattr(scrypted, "async_register_built_in_panel", lambda *args, **kwargs: None)
     monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
+    monkeypatch.setattr(hass.config_entries, "async_reload", reload_mock)
     result = await scrypted.async_setup_entry(hass, entry)
-    assert result is True
+    assert result is False
+    reload_mock.assert_called_once_with(entry.entry_id)
     assert CONF_AUTO_REGISTER_RESOURCES not in entry.data
+    assert CONF_SCRYPTED_NVR not in entry.data
     assert entry.options[CONF_AUTO_REGISTER_RESOURCES] is True
+    assert entry.options[CONF_SCRYPTED_NVR] is True
 
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_without_data_triggers_reauth(hass, monkeypatch):
+    """Test case for test_async_setup_entry_without_data_triggers_reauth."""
     entry = MockConfigEntry(domain=DOMAIN, data={})
     entry.add_to_hass(hass)
     flow_init = AsyncMock(return_value={"type": "form"})
@@ -283,7 +316,8 @@ async def test_async_setup_entry_without_data_triggers_reauth(hass, monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_handles_missing_token(hass, monkeypatch):
+async def test_update_listener_moves_option_keys(hass, monkeypatch):
+    """Test case for test_update_listener_moves_option_keys."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -291,6 +325,81 @@ async def test_async_setup_entry_handles_missing_token(hass, monkeypatch):
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
+            CONF_AUTO_REGISTER_RESOURCES: True,
+            CONF_SCRYPTED_NVR: True,
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+    reload_mock = AsyncMock(return_value=None)
+    monkeypatch.setattr(hass.config_entries, "async_reload", reload_mock)
+    await scrypted._async_update_listener(hass, entry)
+    assert CONF_AUTO_REGISTER_RESOURCES not in entry.data
+    assert CONF_SCRYPTED_NVR not in entry.data
+    assert entry.options[CONF_AUTO_REGISTER_RESOURCES] is True
+    assert entry.options[CONF_SCRYPTED_NVR] is True
+    reload_mock.assert_called_once_with(entry.entry_id)
+
+
+@pytest.mark.asyncio
+async def test_ensure_entry_options_no_changes(hass, monkeypatch):
+    """Test case for test_ensure_entry_options_no_changes."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "example",
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    update_mock = MagicMock()
+    monkeypatch.setattr(hass.config_entries, "async_update_entry", update_mock)
+    changed = await scrypted._async_ensure_entry_options(hass, entry)
+    assert changed is False
+    update_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ensure_entry_options_adds_defaults(hass, monkeypatch):
+    """Test case for test_ensure_entry_options_adds_defaults."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "example",
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+    update_mock = MagicMock()
+    monkeypatch.setattr(hass.config_entries, "async_update_entry", update_mock)
+    changed = await scrypted._async_ensure_entry_options(hass, entry)
+    assert changed is True
+    update_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_handles_missing_token(hass, monkeypatch):
+    """Test case for test_async_setup_entry_handles_missing_token."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "example",
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
         },
     )
     entry.add_to_hass(hass)
@@ -309,6 +418,7 @@ async def test_async_setup_entry_handles_missing_token(hass, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_client_connector_error(hass, monkeypatch):
+    """Test case for test_async_setup_entry_client_connector_error."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -316,6 +426,10 @@ async def test_async_setup_entry_client_connector_error(hass, monkeypatch):
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
         },
     )
     entry.add_to_hass(hass)
@@ -330,6 +444,7 @@ async def test_async_setup_entry_client_connector_error(hass, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_other_exception_propagates(hass, monkeypatch):
+    """Test case for test_async_setup_entry_other_exception_propagates."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -337,6 +452,10 @@ async def test_async_setup_entry_other_exception_propagates(hass, monkeypatch):
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
         },
     )
     entry.add_to_hass(hass)
@@ -351,6 +470,7 @@ async def test_async_setup_entry_other_exception_propagates(hass, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_unload_entry(hass, monkeypatch):
+    """Test case for test_async_unload_entry."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
