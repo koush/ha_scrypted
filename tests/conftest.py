@@ -1,18 +1,12 @@
 """Shared pytest fixtures for Scrypted tests."""
 
 import importlib
-from pathlib import Path
-import sys
 from types import SimpleNamespace
 
 import pytest
 from homeassistant import loader
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 import custom_components.scrypted as scrypted  # noqa: E402
 from custom_components.scrypted import config_flow  # noqa: E402
