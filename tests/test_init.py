@@ -8,6 +8,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from aiohttp import ClientConnectorError
 from homeassistant.components.lovelace.const import DOMAIN as LL_DOMAIN
+from homeassistant.components.lovelace.resources import (
+    ResourceStorageCollection,
+    ResourceYAMLCollection,
+)
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.const import (
     CONF_HOST,
@@ -29,8 +33,8 @@ from custom_components.scrypted.const import (
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 
-class _BaseResources:
-    """Base resource collection used for storage + YAML tests."""
+class FakeStorageResources(ResourceStorageCollection):
+    """Storage-backed fake resources used in tests."""
 
     def __init__(self, items: list[dict] | None = None) -> None:
         self._items = list(items or [])
@@ -56,24 +60,13 @@ class _BaseResources:
         self.deleted.append(resource_id)
 
 
-class FakeStorageResources(_BaseResources):
-    """Storage-backed fake resources used in tests."""
-
-
-class FakeYAMLResources(_BaseResources):
+class FakeYAMLResources(ResourceYAMLCollection):
     """YAML-backed fake resources used in tests."""
 
+    def __init__(self, items: list[dict] | None = None) -> None:
+        super().__init__(items or [])
+        self.deleted: list[int] = []
 
-@pytest.fixture(autouse=True)
-def patch_resource_classes(monkeypatch):
-    """Patch Lovelace resource helpers to use fakes."""
-    monkeypatch.setattr(scrypted, "ResourceStorageCollection", FakeStorageResources)
-    monkeypatch.setattr(scrypted, "ResourceYAMLCollection", FakeYAMLResources)
-
-
-def _attach_resources(hass, resources):
-    """Attach fake Lovelace resources to hass data."""
-    hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
 
 
 def test_get_card_resource_definitions():
@@ -94,7 +87,7 @@ async def test_register_no_lovelace_data_is_noop(hass):
 async def test_register_storage_creates_resources(hass):
     """Test case for test_register_storage_creates_resources."""
     resources = FakeStorageResources()
-    _attach_resources(hass, resources)
+    hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
     await scrypted._async_register_lovelace_resource(hass, "tok", "entry")
     tracker = hass.data[scrypted._RESOURCE_TRACKER]
     assert set(tracker["entry"]) == {
@@ -115,7 +108,7 @@ async def test_register_storage_skips_existing(hass):
             {CONF_ID: 2, CONF_URL: f"{base}.css", "type": "css"},
         ]
     )
-    _attach_resources(hass, resources)
+    hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
     await scrypted._async_register_lovelace_resource(hass, "token", "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
     assert not resources.created
@@ -124,7 +117,7 @@ async def test_register_storage_skips_existing(hass):
 @pytest.mark.asyncio
 async def test_register_yaml_warns(hass, caplog):
     """Test case for test_register_yaml_warns."""
-    _attach_resources(hass, FakeYAMLResources())
+    hass.data[LL_DOMAIN] = SimpleNamespace(resources=FakeYAMLResources())
     await scrypted._async_register_lovelace_resource(hass, "tok", "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
     assert "can't automatically be registered" in caplog.text
@@ -140,7 +133,7 @@ async def test_unregister_storage_removes_resources(hass):
             {CONF_ID: 11, CONF_URL: f"{base}.css"},
         ]
     )
-    _attach_resources(hass, resources)
+    hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
     hass.data[scrypted._RESOURCE_TRACKER] = {
         "entry": {f"{base}.js", f"{base}.css"}
     }
@@ -177,7 +170,7 @@ async def test_unregister_logs_missing_resources(hass, caplog):
     """Test case for test_unregister_logs_missing_resources."""
     base = "/api/scrypted/tok/endpoint/@scrypted/nvr/assets/web-components"
     resources = FakeStorageResources([{CONF_ID: 10, CONF_URL: f"{base}.js"}])
-    _attach_resources(hass, resources)
+    hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
     hass.data[scrypted._RESOURCE_TRACKER] = {
         "entry": {f"{base}.js", f"{base}.css"}
     }
@@ -196,7 +189,7 @@ async def test_unregister_yaml_resources_skip_deletion(hass):
             {CONF_ID: 11, CONF_URL: f"{base}.css"},
         ]
     )
-    _attach_resources(hass, resources)
+    hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
     hass.data[scrypted._RESOURCE_TRACKER] = {
         "entry": {f"{base}.js", f"{base}.css"}
     }
