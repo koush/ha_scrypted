@@ -22,14 +22,6 @@ from .const import DOMAIN, CONF_SCRYPTED_NVR
 _LOGGER = logging.getLogger(__name__)
 
 
-def _entry_uses_nvr(entry: ConfigEntry) -> bool:
-    """Return True when the entry enables the NVR UI."""
-
-    options = getattr(entry, "options", {}) or {}
-    data = getattr(entry, "data", {}) or {}
-    return options.get(CONF_SCRYPTED_NVR, data.get(CONF_SCRYPTED_NVR, False))
-
-
 async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -> str:
     """Retrieve token from Scrypted server."""
     username = data[CONF_USERNAME]
@@ -136,7 +128,7 @@ class ScryptedView(HomeAssistantView):
             if path == "entrypoint.html":
                 body = (await self.entrypoint_html).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
                 entry: ConfigEntry = self.hass.data[DOMAIN][token]
-                if _entry_uses_nvr(entry):
+                if entry.options.get(CONF_SCRYPTED_NVR, entry.data.get(CONF_SCRYPTED_NVR, False)):
                     body = body.replace("core", "nvr")
 
                 response = web.Response(
