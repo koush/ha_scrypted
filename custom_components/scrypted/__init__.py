@@ -261,10 +261,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     async_register_built_in_panel(
         hass,
         "custom",
-        config_entry.data[CONF_NAME],
-        config_entry.data[CONF_ICON],
-        f"{DOMAIN}_{token}",
-        panelconf,
+        sidebar_title=config_entry.data[CONF_NAME],
+        sidebar_icon=config_entry.data[CONF_ICON],
+        frontend_url_path=f"{DOMAIN}_{token}",
+        config=panelconf,
         require_admin=False,
     )
 
