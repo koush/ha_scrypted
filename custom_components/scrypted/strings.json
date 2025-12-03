@@ -16,7 +16,8 @@
           "name": "Name",
           "password": "Password",
           "username": "Username",
-          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR."
+          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR.",
+          "auto_register_resources": "Automatically register Lovelace resources for the Scrypted NVR cards. Recommended if you use Scrypted NVR."
         }
       },
       "upgrade": {
@@ -26,7 +27,9 @@
           "icon": "Icon",
           "name": "Name",
           "password": "Password",
-          "username": "Username"
+          "username": "Username",
+          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR.",
+          "auto_register_resources": "Automatically register Lovelace resources for the Scrypted NVR cards. Recommended if you use Scrypted NVR."
         }
       },
       "credentials": {
@@ -37,6 +40,17 @@
           "name": "Name",
           "password": "Password",
           "username": "Username"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "general": {
+        "description": "Choose whether Scrypted should automatically register and manage the Lovelace resources required for its NVR cards. These files are sizable, so you can opt out if you prefer to manage them manually.",
+        "data": {
+          "auto_register_resources": "Automatically register Scrypted NVR Lovelace resources",
+          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR."
         }
       }
     }

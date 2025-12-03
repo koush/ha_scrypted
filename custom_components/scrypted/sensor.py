@@ -1,5 +1,4 @@
 """Representation of Z-Wave sensors."""
-from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
