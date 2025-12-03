@@ -1,44 +1,58 @@
 {
-    "config": {
-        "abort": {
-            "success": "Your config entry was successfully updated"
+  "config": {
+    "abort": {
+      "success": "Your config entry was successfully updated"
+    },
+    "error": {
+      "already_configured": "Each Scrypted entry needs a unique name.",
+      "invalid_host_or_credentials": "Unable to login to Scrypted server, either host or credentials are invalid."
+    },
+    "step": {
+      "credentials": {
+        "data": {
+          "host": "Host",
+          "icon": "Icon",
+          "name": "Name",
+          "password": "Password",
+          "username": "Username"
         },
-        "error": {
-            "already_configured": "Each Scrypted entry needs a unique name.",
-            "invalid_host_or_credentials": "Unable to login to Scrypted server, either host or credentials are invalid."
+        "description": "The host/credentials combination is no longer working. Please update your host and/or credentials to continue."
+      },
+      "upgrade": {
+        "data": {
+          "host": "Host",
+          "icon": "Icon",
+          "name": "Name",
+          "password": "Password",
+          "username": "Username",
+          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR.",
+          "auto_register_resources": "Automatically register Lovelace resources for the Scrypted NVR cards. Recommended if you use Scrypted NVR."
         },
-        "step": {
-            "credentials": {
-                "data": {
-                    "host": "Host",
-                    "icon": "Icon",
-                    "name": "Name",
-                    "password": "Password",
-                    "username": "Username"
-                },
-                "description": "The host/credentials combination is no longer working. Please update your host and/or credentials to continue."
-            },
-            "upgrade": {
-                "data": {
-                    "host": "Host",
-                    "icon": "Icon",
-                    "name": "Name",
-                    "password": "Password",
-                    "username": "Username"
-                },
-                "description": "Once you enter your credentials, your config entry will now automatically set up a panel for you in the UI with the specified name and icon. Once this is complete, you can remove the `panel_iframe` in your configuration.yaml if you created one for this entry. If your credentials don't work, validate that the server host is an HTTPS endpoint and that your credentials are correct."
-            },
-            "user": {
-                "data": {
-                    "host": "Host",
-                    "icon": "Icon",
-                    "name": "Name",
-                    "password": "Password",
-                    "username": "Username",
-                    "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR."
-                },
-                "description": "Enter your Scrypted server details (you must use an HTTPS endpoint) as well as a name and icon to use for the new panel on the UI.\n\nHost examples:\n- `192.168.1.124`\n- `192.168.1.124:10443`"
-            }
-        }
+        "description": "Once you enter your credentials, your config entry will now automatically set up a panel for you in the UI with the specified name and icon. Once this is complete, you can remove the `panel_iframe` in your configuration.yaml if you created one for this entry. If your credentials don't work, validate that the server host is an HTTPS endpoint and that your credentials are correct."
+      },
+      "user": {
+        "data": {
+          "host": "Host",
+          "icon": "Icon",
+          "name": "Name",
+          "password": "Password",
+          "username": "Username",
+          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR.",
+          "auto_register_resources": "Automatically register Lovelace resources for the Scrypted NVR cards. Recommended if you use Scrypted NVR."
+        },
+        "description": "Enter your Scrypted server details (you must use an HTTPS endpoint) as well as a name and icon to use for the new panel on the UI.\n\nHost examples:\n- `192.168.1.124`\n- `192.168.1.124:10443`"
+      }
     }
+  },
+  "options": {
+    "step": {
+      "general": {
+        "description": "Choose whether Scrypted should automatically register and manage the Lovelace resources required for its NVR cards. These files are sizable, so you can opt out if you prefer to manage them manually.",
+        "data": {
+          "auto_register_resources": "Automatically register Scrypted NVR Lovelace resources",
+          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR."
+        }
+      }
+    }
+  }
 }
