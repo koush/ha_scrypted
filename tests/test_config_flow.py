@@ -247,11 +247,49 @@ async def test_options_flow_respects_existing_options(hass):
 
 
 @pytest.mark.asyncio
-async def test_async_get_options_flow_returns_handler(hass):
-    """Test case for test_async_get_options_flow_returns_handler."""
-    entry = MockConfigEntry(domain=DOMAIN)
-    handler = await config_flow.async_get_options_flow(entry)
-    assert isinstance(handler, config_flow.ScryptedOptionsFlowHandler)
+async def test_options_flow_init_shows_general_step(hass):
+    """Test that initializing the options flow shows the general step."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_HOST: "example"},
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: True,
+            CONF_SCRYPTED_NVR: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "general"
+
+
+@pytest.mark.asyncio
+async def test_options_flow_complete_end_to_end(hass):
+    """Test a complete options flow from init to entry creation."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "example",
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    # Initialize the options flow
+    init_result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert init_result["type"] == FlowResultType.FORM
+    assert init_result["step_id"] == "general"
+
+    # Configure the options
+    result = await hass.config_entries.options.async_configure(
+        init_result["flow_id"],
+        {CONF_AUTO_REGISTER_RESOURCES: True, CONF_SCRYPTED_NVR: True},
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_AUTO_REGISTER_RESOURCES] is True
+    assert result["data"][CONF_SCRYPTED_NVR] is True
 
 
 @pytest.mark.asyncio
