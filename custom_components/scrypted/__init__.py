@@ -263,7 +263,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         "custom",
         sidebar_title=config_entry.data[CONF_NAME],
         sidebar_icon=config_entry.data[CONF_ICON],
-        frontend_url_path=f"{DOMAIN}_{token}",
+        frontend_url_path=f"{DOMAIN}_{config_entry.entry_id}",
         config=panelconf,
         require_admin=False,
     )

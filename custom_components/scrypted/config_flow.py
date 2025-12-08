@@ -213,16 +213,11 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Return the options flow handler for this config entry."""
-
-        return ScryptedOptionsFlowHandler(config_entry)
+        return ScryptedOptionsFlowHandler()
 
 
 class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle Scrypted options."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -269,10 +264,3 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
                 }
             ),
         )
-
-
-async def async_get_options_flow(
-    config_entry: config_entries.ConfigEntry,
-) -> ScryptedOptionsFlowHandler:
-    """Create the options flow (legacy entry point)."""
-    return ScryptedConfigFlow.async_get_options_flow(config_entry)

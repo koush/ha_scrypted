@@ -485,3 +485,119 @@ async def test_async_unload_entry(hass, monkeypatch):
     unregister.assert_awaited()
     assert removed["called"] is True
     assert DOMAIN not in hass.data
+
+
+@pytest.mark.asyncio
+async def test_panel_registered_with_entry_id(hass, monkeypatch):
+    """Test that panel is registered using config entry ID in the URL path."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "example",
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    panel_kwargs = {}
+    monkeypatch.setattr(
+        scrypted,
+        "async_register_built_in_panel",
+        lambda *args, **kwargs: panel_kwargs.update(kwargs),
+    )
+    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
+    result = await scrypted.async_setup_entry(hass, entry)
+    assert result is True
+    assert panel_kwargs["frontend_url_path"] == f"{DOMAIN}_{entry.entry_id}"
+
+
+@pytest.mark.asyncio
+async def test_panel_unregistered_with_entry_id(hass, monkeypatch):
+    """Test that panel is unregistered using the same entry ID-based URL path."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "example",
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+    )
+    entry.add_to_hass(hass)
+    hass.data.setdefault(DOMAIN, {})["token"] = entry
+    unregister = AsyncMock()
+    monkeypatch.setattr(scrypted, "_async_unregister_lovelace_resource", unregister)
+    removed_panels = []
+    monkeypatch.setattr(
+        scrypted,
+        "async_remove_panel",
+        lambda hass, panel_name: removed_panels.append(panel_name),
+    )
+    result = await scrypted.async_unload_entry(hass, entry)
+    assert result is True
+    assert removed_panels == [f"{DOMAIN}_{entry.entry_id}"]
+
+
+@pytest.mark.asyncio
+async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
+    """Test that panel can be reloaded without 'Overwriting panel' errors.
+
+    This verifies that both registration and unregistration use the same
+    entry ID-based URL path, allowing clean reloads.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "example",
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    registered_panels = []
+    removed_panels = []
+
+    def register_panel(*args, **kwargs):
+        panel_path = kwargs.get("frontend_url_path")
+        if panel_path in registered_panels:
+            raise ValueError(f"Overwriting panel {panel_path}")
+        registered_panels.append(panel_path)
+
+    def remove_panel(hass, panel_name):
+        if panel_name in registered_panels:
+            registered_panels.remove(panel_name)
+        removed_panels.append(panel_name)
+
+    monkeypatch.setattr(scrypted, "async_register_built_in_panel", register_panel)
+    monkeypatch.setattr(scrypted, "async_remove_panel", remove_panel)
+    monkeypatch.setattr(scrypted, "_async_unregister_lovelace_resource", AsyncMock())
+    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
+
+    # First setup
+    result = await scrypted.async_setup_entry(hass, entry)
+    assert result is True
+    assert f"{DOMAIN}_{entry.entry_id}" in registered_panels
+
+    # Unload
+    result = await scrypted.async_unload_entry(hass, entry)
+    assert result is True
+    assert f"{DOMAIN}_{entry.entry_id}" not in registered_panels
+
+    # Re-add token mapping for second setup
+    hass.data.setdefault(DOMAIN, {})
+
+    # Second setup (simulating reload) - should not raise ValueError
+    result = await scrypted.async_setup_entry(hass, entry)
+    assert result is True
+    assert f"{DOMAIN}_{entry.entry_id}" in registered_panels
