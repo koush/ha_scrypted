@@ -71,7 +71,6 @@ async def _async_register_lovelace_resource(
     tracker: dict[str, set[str]] = hass.data.setdefault(_RESOURCE_TRACKER, {})
     entry_tracker = tracker.setdefault(entry_id, set())
 
-    created_resource = False
     for resource_type, resource_url in _get_card_resource_definitions(token):
         # Skip creation when Home Assistant already has an entry for this URL.
         try:
@@ -96,7 +95,6 @@ async def _async_register_lovelace_resource(
                 {CONF_RESOURCE_TYPE_WS: resource_type, CONF_URL: resource_url}
             )
             entry_tracker.add(resource_url)
-            created_resource = True
             _LOGGER.debug(
                 "Registered Scrypted Lovelace resource (resource ID %s) for entry %s",
                 data.get(CONF_ID),
@@ -234,10 +232,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     try:
         if not (token := await retrieve_token(config_entry.data, session)):
             return _reauth(config_entry.data)
-    except Exception as e:
-        if isinstance(e, ClientConnectorError):
-            raise ConfigEntryNotReady("ClientConnectorError. Is the Scrypted host down? Retrying.")
-        raise e
+    except ClientConnectorError as e:
+        raise ConfigEntryNotReady(
+            "ClientConnectorError. Is the Scrypted host down? Retrying."
+        ) from e
 
     hass.data.setdefault(DOMAIN, {})[token] = config_entry
     config_entry.async_on_unload(

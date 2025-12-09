@@ -1,24 +1,26 @@
 """The Scrypted integration."""
 
 import asyncio
-import logging
 from collections.abc import Iterable
 from functools import lru_cache
 from ipaddress import ip_address
+import logging
 import os
 from typing import Any
 from urllib.parse import quote
+
 import aiohttp
 from aiohttp import ClientTimeout, hdrs, web
 from aiohttp.web_exceptions import HTTPBadGateway, HTTPBadRequest
+from multidict import CIMultiDict
+from yarl import URL
+
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
-from multidict import CIMultiDict
-from yarl import URL
 
-from .const import DOMAIN, CONF_SCRYPTED_NVR
+from .const import CONF_SCRYPTED_NVR, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,9 +70,16 @@ class ScryptedView(HomeAssistantView):
         hass.async_add_executor_job(lambda: self.load_files(session.loop))
 
     def load_files(self, loop: asyncio.AbstractEventLoop):
-        lit_core = str(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js")).read())
-        entrypoint_js = str(open(os.path.join(os.path.dirname(__file__), "entrypoint.js")).read())
-        entrypoint_html = str(open(os.path.join(os.path.dirname(__file__), "entrypoint.html")).read())
+        """Load static files from disk and set futures with results."""
+        base_dir = os.path.dirname(__file__)
+        with open(
+            os.path.join(base_dir, "lit-core.min.js"), encoding="utf-8"
+        ) as f:
+            lit_core = f.read()
+        with open(os.path.join(base_dir, "entrypoint.js"), encoding="utf-8") as f:
+            entrypoint_js = f.read()
+        with open(os.path.join(base_dir, "entrypoint.html"), encoding="utf-8") as f:
+            entrypoint_html = f.read()
         loop.call_soon_threadsafe(lambda: self.lit_core.set_result(lit_core))
         loop.call_soon_threadsafe(lambda: self.entrypoint_js.set_result(entrypoint_js))
         loop.call_soon_threadsafe(lambda: self.entrypoint_html.set_result(entrypoint_html))

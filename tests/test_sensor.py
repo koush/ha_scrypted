@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-from homeassistant.const import CONF_HOST
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from homeassistant.const import CONF_HOST
 
 from custom_components.scrypted import sensor
 from custom_components.scrypted.const import DOMAIN
@@ -20,7 +19,6 @@ def test_sensor_attributes():
     assert entity.extra_state_attributes[CONF_HOST] == "example"
 
 
-@pytest.mark.asyncio
 async def test_async_setup_entry_adds_token_sensor(hass):
     """Test case for test_async_setup_entry_adds_token_sensor."""
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})

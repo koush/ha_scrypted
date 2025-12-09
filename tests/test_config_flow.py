@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-import pytest
 from homeassistant import config_entries
 from homeassistant.const import (
     CONF_HOST,
@@ -15,15 +14,12 @@ from homeassistant.const import (
 )
 from homeassistant.data_entry_flow import FlowResultType
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from custom_components.scrypted import config_flow
 from custom_components.scrypted.const import (
     CONF_AUTO_REGISTER_RESOURCES,
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
-
 
 CREDENTIALS_INPUT = {
     CONF_HOST: "example",
@@ -41,7 +37,6 @@ USER_INPUT = {
 }
 
 
-@pytest.mark.asyncio
 async def test_user_flow_creates_entry(hass):
     """Test case for test_user_flow_creates_entry."""
     init_result = await hass.config_entries.flow.async_init(
@@ -55,13 +50,8 @@ async def test_user_flow_creates_entry(hass):
     assert result["data"][CONF_AUTO_REGISTER_RESOURCES] is True
 
 
-@pytest.mark.asyncio
-async def test_user_flow_invalid_credentials_shows_error(hass, monkeypatch):
+async def test_user_flow_invalid_credentials_shows_error(hass, mock_retrieve_token_error):
     """Test case for test_user_flow_invalid_credentials_shows_error."""
-    async def _raise(*args, **kwargs):
-        raise ValueError
-
-    monkeypatch.setattr(config_flow, "retrieve_token", _raise)
     init_result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -72,15 +62,11 @@ async def test_user_flow_invalid_credentials_shows_error(hass, monkeypatch):
     assert result["errors"]["base"] == "invalid_host_or_credentials"
 
 
-@pytest.mark.asyncio
-async def test_reauth_credentials_invalid_sets_error(hass, monkeypatch):
+async def test_reauth_credentials_invalid_sets_error(hass, mock_retrieve_token_error):
     """Test case for test_reauth_credentials_invalid_sets_error."""
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
     entry.add_to_hass(hass)
     context_data = {**entry.data, CONF_PASSWORD: "old"}
-    async def _raise(*args, **kwargs):
-        raise ValueError
-    monkeypatch.setattr(config_flow, "retrieve_token", _raise)
     init_result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={
@@ -96,7 +82,6 @@ async def test_reauth_credentials_invalid_sets_error(hass, monkeypatch):
     assert result["errors"]["base"] == "invalid_host_or_credentials"
 
 
-@pytest.mark.asyncio
 async def test_reauth_upgrade_defaults_from_context_options(hass):
     """Test case for test_reauth_upgrade_defaults_from_context_options."""
     entry = MockConfigEntry(
@@ -119,7 +104,6 @@ async def test_reauth_upgrade_defaults_from_context_options(hass):
     assert auto_field.default() is True
 
 
-@pytest.mark.asyncio
 async def test_reauth_without_password_shows_upgrade_step(hass):
     """Test case for test_reauth_without_password_shows_upgrade_step."""
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
@@ -136,13 +120,10 @@ async def test_reauth_without_password_shows_upgrade_step(hass):
     assert result["step_id"] == "upgrade"
 
 
-@pytest.mark.asyncio
-async def test_reauth_credentials_triggers_reload(hass, monkeypatch):
+async def test_reauth_credentials_triggers_reload(hass, mock_async_reload):
     """Test case for test_reauth_credentials_triggers_reload."""
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
     entry.add_to_hass(hass)
-    reload_mock = AsyncMock()
-    monkeypatch.setattr(hass.config_entries, "async_reload", reload_mock)
     context_data = {**entry.data, CONF_PASSWORD: "old"}
     init_result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -158,10 +139,9 @@ async def test_reauth_credentials_triggers_reload(hass, monkeypatch):
     )
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "success"
-    reload_mock.assert_awaited_once_with(entry.entry_id)
+    mock_async_reload.assert_awaited_once_with(entry.entry_id)
 
 
-@pytest.mark.asyncio
 async def test_reauth_duplicate_host_sets_error(hass):
     """Test case for test_reauth_duplicate_host_sets_error."""
     current = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "current"})
@@ -188,7 +168,6 @@ async def test_reauth_duplicate_host_sets_error(hass):
     assert result["errors"][CONF_NAME] == "already_configured"
 
 
-@pytest.mark.asyncio
 async def test_options_flow_updates_entry(hass):
     """Test case for test_options_flow_updates_entry."""
     entry = MockConfigEntry(
@@ -209,7 +188,6 @@ async def test_options_flow_updates_entry(hass):
     assert result["data"][CONF_SCRYPTED_NVR] is True
 
 
-@pytest.mark.asyncio
 async def test_options_flow_defaults_to_entry_data(hass):
     """Test case for test_options_flow_defaults_to_entry_data."""
     entry = MockConfigEntry(
@@ -228,7 +206,6 @@ async def test_options_flow_defaults_to_entry_data(hass):
     assert validated[CONF_SCRYPTED_NVR] is True
 
 
-@pytest.mark.asyncio
 async def test_options_flow_respects_existing_options(hass):
     """Test case for test_options_flow_respects_existing_options."""
     entry = MockConfigEntry(
@@ -246,7 +223,6 @@ async def test_options_flow_respects_existing_options(hass):
     assert nvr_field.default() is False
 
 
-@pytest.mark.asyncio
 async def test_options_flow_init_shows_general_step(hass):
     """Test that initializing the options flow shows the general step."""
     entry = MockConfigEntry(
@@ -263,7 +239,6 @@ async def test_options_flow_init_shows_general_step(hass):
     assert result["step_id"] == "general"
 
 
-@pytest.mark.asyncio
 async def test_options_flow_complete_end_to_end(hass):
     """Test a complete options flow from init to entry creation."""
     entry = MockConfigEntry(
@@ -292,7 +267,6 @@ async def test_options_flow_complete_end_to_end(hass):
     assert result["data"][CONF_SCRYPTED_NVR] is True
 
 
-@pytest.mark.asyncio
 async def test_validate_input_missing_field_returns_false(hass):
     """Test case for test_validate_input_missing_field_returns_false."""
     flow = config_flow.ScryptedConfigFlow()

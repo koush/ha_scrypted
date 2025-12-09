@@ -1,0 +1,38 @@
+{
+    "name": "Scrypted HA Integration Dev",
+    "image": "ghcr.io/home-assistant/devcontainer:latest",
+    "containerEnv": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+    },
+    "postCreateCommand": ".devcontainer/post-create.sh",
+    "postStartCommand": ".devcontainer/post-start.sh",
+    "forwardPorts": [8123],
+    "portsAttributes": {
+        "8123": {
+            "label": "Home Assistant",
+            "onAutoForward": "notify"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "charliermarsh.ruff",
+                "ms-python.debugpy",
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "redhat.vscode-yaml",
+                "visualstudioexptteam.vscodeintellicode",
+                "GitHub.vscode-pull-request-github"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.testing.pytestEnabled": true,
+                "python.testing.pytestArgs": ["tests"],
+                "editor.formatOnSave": true,
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff"
+                }
+            }
+        }
+    }
+}

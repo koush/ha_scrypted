@@ -3,8 +3,8 @@
 from typing import Any
 
 import voluptuous as vol
+
 from homeassistant import config_entries
-from homeassistant.core import callback
 from homeassistant.const import (
     CONF_HOST,
     CONF_ICON,
@@ -12,8 +12,15 @@ from homeassistant.const import (
     CONF_PASSWORD,
     CONF_USERNAME,
 )
-from homeassistant.helpers import selector
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    IconSelector,
+    IconSelectorConfig,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 from homeassistant.util import slugify
 
 from .const import (
@@ -24,9 +31,9 @@ from .const import (
 from .http import retrieve_token
 
 
-def text_selector(type: selector.TextSelectorType) -> selector.TextSelector:
+def text_selector(selector_type: TextSelectorType) -> TextSelector:
     """Create a text selector."""
-    return selector.TextSelector(selector.TextSelectorConfig(type=type))
+    return TextSelector(TextSelectorConfig(type=selector_type))
 
 
 def _get_config_schema(
@@ -45,19 +52,19 @@ def _get_config_schema(
     schema: dict[Any, Any] = {
         vol.Required(
             CONF_NAME, default=default.get(CONF_NAME, DOMAIN.title())
-        ): text_selector(type=selector.TextSelectorType.TEXT),
+        ): text_selector(TextSelectorType.TEXT),
         vol.Required(
             CONF_ICON, default=default.get(CONF_ICON, "mdi:memory")
-        ): selector.IconSelector(selector.IconSelectorConfig()),
+        ): IconSelector(IconSelectorConfig()),
         vol.Required(CONF_HOST, default=default.get(CONF_HOST)): text_selector(
-            type=selector.TextSelectorType.TEXT
+            TextSelectorType.TEXT
         ),
         vol.Required(
             CONF_USERNAME, default=default.get(CONF_USERNAME)
-        ): text_selector(type=selector.TextSelectorType.TEXT),
+        ): text_selector(TextSelectorType.TEXT),
         vol.Required(
             CONF_PASSWORD, default=default.get(CONF_PASSWORD)
-        ): text_selector(type=selector.TextSelectorType.PASSWORD),
+        ): text_selector(TextSelectorType.PASSWORD),
     }
     if include_nvr:
         schema[
