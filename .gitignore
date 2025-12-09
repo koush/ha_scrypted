@@ -3,10 +3,8 @@
 .venv
 venv
 .claude
-.codex
 .coverage
 .pytest_cache
 .mypy_cache
 .ruff_cache
 .uv-cache
-.ha
