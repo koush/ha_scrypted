@@ -6,11 +6,15 @@
     },
     "postCreateCommand": ".devcontainer/post-create.sh",
     "postStartCommand": ".devcontainer/post-start.sh",
-    "forwardPorts": [8123],
+    "forwardPorts": [8123, 5678],
     "portsAttributes": {
         "8123": {
             "label": "Home Assistant",
             "onAutoForward": "notify"
+        },
+        "5678": {
+            "label": "Home Assistant debugpy",
+            "onAutoForward": "silent"
         }
     },
     "customizations": {

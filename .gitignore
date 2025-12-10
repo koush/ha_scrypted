@@ -8,3 +8,4 @@ venv
 .mypy_cache
 .ruff_cache
 .uv-cache
+.devcontainer/.env

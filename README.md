@@ -23,6 +23,7 @@ The dev container automatically:
 - Sets up pre-commit hooks
 - Symlinks `custom_components/scrypted` into the HA config
 - Configures debug logging for the integration
+- Starts debugpy on port 5678 (attach with the provided VS Code launch config). To make Home Assistant wait for the debugger on startup, copy `.devcontainer/.env.example` to `.devcontainer/.env` and set `ENV_DEBUGPY_WAIT=true`.
 
 ### Local Development
 
