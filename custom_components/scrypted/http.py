@@ -72,9 +72,7 @@ class ScryptedView(HomeAssistantView):
     def load_files(self, loop: asyncio.AbstractEventLoop):
         """Load static files from disk and set futures with results."""
         base_dir = os.path.dirname(__file__)
-        with open(
-            os.path.join(base_dir, "lit-core.min.js"), encoding="utf-8"
-        ) as f:
+        with open(os.path.join(base_dir, "lit-core.min.js"), encoding="utf-8") as f:
             lit_core = f.read()
         with open(os.path.join(base_dir, "entrypoint.js"), encoding="utf-8") as f:
             entrypoint_js = f.read()
@@ -82,7 +80,9 @@ class ScryptedView(HomeAssistantView):
             entrypoint_html = f.read()
         loop.call_soon_threadsafe(lambda: self.lit_core.set_result(lit_core))
         loop.call_soon_threadsafe(lambda: self.entrypoint_js.set_result(entrypoint_js))
-        loop.call_soon_threadsafe(lambda: self.entrypoint_html.set_result(entrypoint_html))
+        loop.call_soon_threadsafe(
+            lambda: self.entrypoint_html.set_result(entrypoint_html)
+        )
 
     @lru_cache
     def _create_url(self, token: str, path: str) -> str:
@@ -125,7 +125,11 @@ class ScryptedView(HomeAssistantView):
                 return response
 
             if path == "entrypoint.js":
-                body = (await self.entrypoint_js).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                body = (
+                    (await self.entrypoint_js)
+                    .replace("__DOMAIN__", DOMAIN)
+                    .replace("__TOKEN__", token)
+                )
                 response = web.Response(
                     body=body,
                     headers={
@@ -136,9 +140,15 @@ class ScryptedView(HomeAssistantView):
                 return response
 
             if path == "entrypoint.html":
-                body = (await self.entrypoint_html).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                body = (
+                    (await self.entrypoint_html)
+                    .replace("__DOMAIN__", DOMAIN)
+                    .replace("__TOKEN__", token)
+                )
                 entry: ConfigEntry = self.hass.data[DOMAIN][token]
-                if entry.options.get(CONF_SCRYPTED_NVR, entry.data.get(CONF_SCRYPTED_NVR, False)):
+                if entry.options.get(
+                    CONF_SCRYPTED_NVR, entry.data.get(CONF_SCRYPTED_NVR, False)
+                ):
                     body = body.replace("core", "nvr")
 
                 response = web.Response(
@@ -183,7 +193,10 @@ class ScryptedView(HomeAssistantView):
             req_protocols = ()
 
         ws_server = web.WebSocketResponse(
-            protocols=req_protocols, autoclose=False, autoping=False, max_msg_size=4194304 * 4
+            protocols=req_protocols,
+            autoclose=False,
+            autoping=False,
+            max_msg_size=4194304 * 4,
         )
         await ws_server.prepare(request)
 
@@ -204,7 +217,7 @@ class ScryptedView(HomeAssistantView):
             protocols=req_protocols,
             autoclose=False,
             autoping=False,
-            max_msg_size=4194304 * 4
+            max_msg_size=4194304 * 4,
         ) as ws_client:
             # Proxy requests
             await asyncio.wait(

@@ -37,12 +37,17 @@ def mock_async_get_clientsession():
 @pytest.fixture(autouse=True)
 def mock_retrieve_token():
     """Return a canned token unless a test overrides the patch."""
+
     async def _fake_retrieve(data, session):
         return "token"
 
     with (
-        patch.object(scrypted, "retrieve_token", side_effect=_fake_retrieve) as scrypted_mock,
-        patch.object(config_flow, "retrieve_token", side_effect=_fake_retrieve) as config_flow_mock,
+        patch.object(
+            scrypted, "retrieve_token", side_effect=_fake_retrieve
+        ) as scrypted_mock,
+        patch.object(
+            config_flow, "retrieve_token", side_effect=_fake_retrieve
+        ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
 
@@ -55,12 +60,15 @@ def mock_retrieve_token():
 @pytest.fixture
 def mock_retrieve_token_error():
     """Patch retrieve_token to raise ValueError (invalid credentials)."""
+
     async def _raise(*args, **kwargs):
         raise ValueError
 
     with (
         patch.object(scrypted, "retrieve_token", side_effect=_raise) as scrypted_mock,
-        patch.object(config_flow, "retrieve_token", side_effect=_raise) as config_flow_mock,
+        patch.object(
+            config_flow, "retrieve_token", side_effect=_raise
+        ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
 
@@ -68,12 +76,17 @@ def mock_retrieve_token_error():
 @pytest.fixture
 def mock_retrieve_token_none():
     """Patch retrieve_token to return None (missing token)."""
+
     async def _no_token(*args, **kwargs):
         return None
 
     with (
-        patch.object(scrypted, "retrieve_token", side_effect=_no_token) as scrypted_mock,
-        patch.object(config_flow, "retrieve_token", side_effect=_no_token) as config_flow_mock,
+        patch.object(
+            scrypted, "retrieve_token", side_effect=_no_token
+        ) as scrypted_mock,
+        patch.object(
+            config_flow, "retrieve_token", side_effect=_no_token
+        ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
 
@@ -104,7 +117,9 @@ def mock_register_built_in_panel():
     def _capture(*args, **kwargs):
         captured_kwargs.update(kwargs)
 
-    with patch.object(scrypted, "async_register_built_in_panel", side_effect=_capture) as mock:
+    with patch.object(
+        scrypted, "async_register_built_in_panel", side_effect=_capture
+    ) as mock:
         mock.captured_kwargs = captured_kwargs
         yield mock
 
@@ -134,7 +149,9 @@ def mock_forward_entry_setups(hass):
 @pytest.fixture
 def mock_async_reload(hass):
     """Patch hass.config_entries.async_reload."""
-    with patch.object(hass.config_entries, "async_reload", new_callable=AsyncMock) as mock:
+    with patch.object(
+        hass.config_entries, "async_reload", new_callable=AsyncMock
+    ) as mock:
         yield mock
 
 
@@ -178,12 +195,15 @@ def mock_scrypted_view():
 @pytest.fixture
 def mock_retrieve_token_client_error():
     """Patch retrieve_token to raise ClientConnectorError."""
+
     async def _raise(*args, **kwargs):
         raise ClientConnectorError(SimpleNamespace(), OSError())
 
     with (
         patch.object(scrypted, "retrieve_token", side_effect=_raise) as scrypted_mock,
-        patch.object(config_flow, "retrieve_token", side_effect=_raise) as config_flow_mock,
+        patch.object(
+            config_flow, "retrieve_token", side_effect=_raise
+        ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
 
@@ -191,12 +211,15 @@ def mock_retrieve_token_client_error():
 @pytest.fixture
 def mock_retrieve_token_runtime_error():
     """Patch retrieve_token to raise RuntimeError."""
+
     async def _raise(*args, **kwargs):
         raise RuntimeError("boom")
 
     with (
         patch.object(scrypted, "retrieve_token", side_effect=_raise) as scrypted_mock,
-        patch.object(config_flow, "retrieve_token", side_effect=_raise) as config_flow_mock,
+        patch.object(
+            config_flow, "retrieve_token", side_effect=_raise
+        ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
 
@@ -219,7 +242,9 @@ def mock_panel_lifecycle(mock_unregister_lovelace_resource, mock_forward_entry_s
         removed_panels.append(panel_name)
 
     with (
-        patch.object(scrypted, "async_register_built_in_panel", side_effect=register_panel),
+        patch.object(
+            scrypted, "async_register_built_in_panel", side_effect=register_panel
+        ),
         patch.object(scrypted, "async_remove_panel", side_effect=remove_panel),
     ):
         yield {"registered": registered_panels, "removed": removed_panels}

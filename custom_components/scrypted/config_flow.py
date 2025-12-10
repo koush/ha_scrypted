@@ -59,12 +59,12 @@ def _get_config_schema(
         vol.Required(CONF_HOST, default=default.get(CONF_HOST)): text_selector(
             TextSelectorType.TEXT
         ),
-        vol.Required(
-            CONF_USERNAME, default=default.get(CONF_USERNAME)
-        ): text_selector(TextSelectorType.TEXT),
-        vol.Required(
-            CONF_PASSWORD, default=default.get(CONF_PASSWORD)
-        ): text_selector(TextSelectorType.PASSWORD),
+        vol.Required(CONF_USERNAME, default=default.get(CONF_USERNAME)): text_selector(
+            TextSelectorType.TEXT
+        ),
+        vol.Required(CONF_PASSWORD, default=default.get(CONF_PASSWORD)): text_selector(
+            TextSelectorType.PASSWORD
+        ),
     }
     if include_nvr:
         schema[
@@ -74,9 +74,7 @@ def _get_config_schema(
         ] = bool
     if include_auto_register:
         schema[
-            vol.Required(
-                CONF_AUTO_REGISTER_RESOURCES, default=auto_register_value
-            )
+            vol.Required(CONF_AUTO_REGISTER_RESOURCES, default=auto_register_value)
         ] = bool
     return vol.Schema(schema)
 
@@ -85,10 +83,6 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a Scrypted config flow."""
 
     VERSION = 1
-
-    def __init__(self) -> None:
-        """Initialize flow."""
-        self.data = {}
 
     async def validate_input(self, data: dict[str, Any]) -> bool:
         """Validate that the host is valid."""
@@ -203,16 +197,13 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle upgrade step."""
         return await self._async_step_reauth("upgrade", user_input)
 
-    def _async_auto_register_default(
-        self, data: dict[str, Any] | None
-    ) -> bool:
+    def _async_auto_register_default(self, data: dict[str, Any] | None) -> bool:
         """Determine the auto register default."""
         if data and CONF_AUTO_REGISTER_RESOURCES in data:
             return data[CONF_AUTO_REGISTER_RESOURCES]
         if options := self.context.get("options"):
             return options.get(CONF_AUTO_REGISTER_RESOURCES, False)
         return False
-
 
     @staticmethod
     @callback
@@ -239,16 +230,12 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             data = {
                 **self.config_entry.options,
-                CONF_AUTO_REGISTER_RESOURCES: user_input[
-                    CONF_AUTO_REGISTER_RESOURCES
-                ],
+                CONF_AUTO_REGISTER_RESOURCES: user_input[CONF_AUTO_REGISTER_RESOURCES],
                 CONF_SCRYPTED_NVR: user_input[CONF_SCRYPTED_NVR],
             }
             return self.async_create_entry(data=data)
 
-        current_auto = self.config_entry.options.get(
-            CONF_AUTO_REGISTER_RESOURCES
-        )
+        current_auto = self.config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES)
         if current_auto is None:
             current_auto = self.config_entry.data.get(
                 CONF_AUTO_REGISTER_RESOURCES, False
@@ -256,9 +243,7 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
 
         current_nvr = self.config_entry.options.get(CONF_SCRYPTED_NVR)
         if current_nvr is None:
-            current_nvr = self.config_entry.data.get(
-                CONF_SCRYPTED_NVR, False
-            )
+            current_nvr = self.config_entry.data.get(CONF_SCRYPTED_NVR, False)
 
         return self.async_show_form(
             step_id="general",

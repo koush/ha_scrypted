@@ -20,18 +20,15 @@ on:
 
 jobs:
   lint:
-    name: Python ${{ matrix.python-version }} Lint
+    name: Python Lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.14"]
 
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.14"
       - name: Install lint dependencies
         run: |
           python -m pip install --upgrade pip

@@ -50,7 +50,9 @@ async def test_user_flow_creates_entry(hass):
     assert result["data"][CONF_AUTO_REGISTER_RESOURCES] is True
 
 
-async def test_user_flow_invalid_credentials_shows_error(hass, mock_retrieve_token_error):
+async def test_user_flow_invalid_credentials_shows_error(
+    hass, mock_retrieve_token_error
+):
     """Test case for test_user_flow_invalid_credentials_shows_error."""
     init_result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -100,7 +102,9 @@ async def test_reauth_upgrade_defaults_from_context_options(hass):
         },
     )
     schema_keys = list(result["data_schema"].schema.keys())
-    auto_field = next(key for key in schema_keys if key.schema == CONF_AUTO_REGISTER_RESOURCES)
+    auto_field = next(
+        key for key in schema_keys if key.schema == CONF_AUTO_REGISTER_RESOURCES
+    )
     assert auto_field.default() is True
 
 

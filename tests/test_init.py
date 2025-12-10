@@ -66,7 +66,6 @@ class FakeYAMLResources(ResourceYAMLCollection):
         self.deleted: list[int] = []
 
 
-
 def test_get_card_resource_definitions():
     """Test case for test_get_card_resource_definitions."""
     resources = scrypted._get_card_resource_definitions("tok")
@@ -127,9 +126,7 @@ async def test_unregister_storage_removes_resources(hass):
         ]
     )
     hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
-    hass.data[scrypted._RESOURCE_TRACKER] = {
-        "entry": {f"{base}.js", f"{base}.css"}
-    }
+    hass.data[scrypted._RESOURCE_TRACKER] = {"entry": {f"{base}.js", f"{base}.css"}}
     await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
     assert set(resources.deleted) == {10, 11}
     assert scrypted._RESOURCE_TRACKER not in hass.data
@@ -160,9 +157,7 @@ async def test_unregister_logs_missing_resources(hass, caplog):
     base = "/api/scrypted/tok/endpoint/@scrypted/nvr/assets/web-components"
     resources = FakeStorageResources([{CONF_ID: 10, CONF_URL: f"{base}.js"}])
     hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
-    hass.data[scrypted._RESOURCE_TRACKER] = {
-        "entry": {f"{base}.js", f"{base}.css"}
-    }
+    hass.data[scrypted._RESOURCE_TRACKER] = {"entry": {f"{base}.js", f"{base}.css"}}
     await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
     assert resources.deleted == [10]
     assert "was not found" in caplog.text
@@ -178,9 +173,7 @@ async def test_unregister_yaml_resources_skip_deletion(hass):
         ]
     )
     hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
-    hass.data[scrypted._RESOURCE_TRACKER] = {
-        "entry": {f"{base}.js", f"{base}.css"}
-    }
+    hass.data[scrypted._RESOURCE_TRACKER] = {"entry": {f"{base}.js", f"{base}.css"}}
     await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
     assert not resources.deleted
 
@@ -188,7 +181,9 @@ async def test_unregister_yaml_resources_skip_deletion(hass):
 async def test_async_setup_without_domain_config(hass, mock_scrypted_view):
     """Test case for test_async_setup_without_domain_config."""
     registered = {}
-    hass.http = SimpleNamespace(register_view=lambda view: registered.setdefault("view", view))
+    hass.http = SimpleNamespace(
+        register_view=lambda view: registered.setdefault("view", view)
+    )
     result = await scrypted.async_setup(hass, {})
     assert result is True
     assert registered["view"] == "view"
@@ -203,7 +198,10 @@ async def test_async_setup_imports_yaml_config(
     await hass.async_block_till_done()
     assert result is False
     mock_flow_async_init.assert_awaited()
-    assert "Your Scrypted configuration" in mock_async_create_notification.notifications["created"][0][1]
+    assert (
+        "Your Scrypted configuration"
+        in mock_async_create_notification.notifications["created"][0][1]
+    )
 
 
 async def test_async_setup_entry_registers_resources_and_panel(
@@ -268,7 +266,9 @@ async def test_async_setup_entry_moves_auto_register_flag(
     assert entry.options[CONF_SCRYPTED_NVR] is True
 
 
-async def test_async_setup_entry_without_data_triggers_reauth(hass, mock_flow_async_init):
+async def test_async_setup_entry_without_data_triggers_reauth(
+    hass, mock_flow_async_init
+):
     """Test case for test_async_setup_entry_without_data_triggers_reauth."""
     entry = MockConfigEntry(domain=DOMAIN, data={})
     entry.add_to_hass(hass)
@@ -277,7 +277,9 @@ async def test_async_setup_entry_without_data_triggers_reauth(hass, mock_flow_as
     assert result is False
     assert mock_flow_async_init.await_count == 1
     assert mock_flow_async_init.call_args.kwargs["context"]["source"] == SOURCE_REAUTH
-    assert mock_flow_async_init.call_args.kwargs["context"]["entry_id"] == entry.entry_id
+    assert (
+        mock_flow_async_init.call_args.kwargs["context"]["entry_id"] == entry.entry_id
+    )
 
 
 async def test_update_listener_moves_option_keys(hass, mock_async_reload):
@@ -366,7 +368,9 @@ async def test_async_setup_entry_handles_missing_token(
     assert mock_flow_async_init.call_args.kwargs["context"]["source"] == SOURCE_REAUTH
 
 
-async def test_async_setup_entry_client_connector_error(hass, mock_retrieve_token_client_error):
+async def test_async_setup_entry_client_connector_error(
+    hass, mock_retrieve_token_client_error
+):
     """Test case for test_async_setup_entry_client_connector_error."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -386,7 +390,9 @@ async def test_async_setup_entry_client_connector_error(hass, mock_retrieve_toke
         await scrypted.async_setup_entry(hass, entry)
 
 
-async def test_async_setup_entry_other_exception_propagates(hass, mock_retrieve_token_runtime_error):
+async def test_async_setup_entry_other_exception_propagates(
+    hass, mock_retrieve_token_runtime_error
+):
     """Test case for test_async_setup_entry_other_exception_propagates."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -406,7 +412,9 @@ async def test_async_setup_entry_other_exception_propagates(hass, mock_retrieve_
         await scrypted.async_setup_entry(hass, entry)
 
 
-async def test_async_unload_entry(hass, mock_unregister_lovelace_resource, mock_remove_panel):
+async def test_async_unload_entry(
+    hass, mock_unregister_lovelace_resource, mock_remove_panel
+):
     """Test case for test_async_unload_entry."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -447,7 +455,10 @@ async def test_panel_registered_with_entry_id(
     entry.add_to_hass(hass)
     result = await scrypted.async_setup_entry(hass, entry)
     assert result is True
-    assert mock_register_built_in_panel.captured_kwargs["frontend_url_path"] == f"{DOMAIN}_{entry.entry_id}"
+    assert (
+        mock_register_built_in_panel.captured_kwargs["frontend_url_path"]
+        == f"{DOMAIN}_{entry.entry_id}"
+    )
 
 
 async def test_panel_unregistered_with_entry_id(
