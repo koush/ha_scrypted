@@ -113,7 +113,7 @@ async def _async_register_lovelace_resource(
 
 
 async def _async_unregister_lovelace_resource(
-    hass: HomeAssistant, token: str, entry_id: str
+    hass: HomeAssistant, entry_id: str
 ) -> None:
     """Remove any Lovelace resources created for this entry.
 
@@ -280,7 +280,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
         if entry.entry_id == config_entry.entry_id
     )
 
-    await _async_unregister_lovelace_resource(hass, token, config_entry.entry_id)
+    await _async_unregister_lovelace_resource(hass, config_entry.entry_id)
 
     hass.data[DOMAIN].pop(token)
     if not hass.data[DOMAIN]:

@@ -1,0 +1,15 @@
+{
+  "authorization": "Bearer abc123def456ghi789jkl012mno345pqr678stu901vwx234yz#{\"u\":\"testuser\",\"t\":1700000000000,\"d\":86400000}",
+  "queryToken": {
+    "scryptedToken": "abc123def456ghi789jkl012mno345pqr678stu901vwx234yz#{\"u\":\"testuser\",\"t\":1700000000000,\"d\":86400000}"
+  },
+  "username": "testuser",
+  "token": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+  "externalAddresses": [
+    "https://example.trycloudflare.com"
+  ],
+  "addresses": [
+    "https://192.168.1.100:10443"
+  ],
+  "hostname": "docker"
+}

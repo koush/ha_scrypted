@@ -20,13 +20,14 @@ from custom_components.scrypted.const import (
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
+from tests.const import EXAMPLE_HOST, PASSWORD, USERNAME
 
 CREDENTIALS_INPUT = {
-    CONF_HOST: "example",
+    CONF_HOST: EXAMPLE_HOST,
     CONF_ICON: "mdi:test",
     CONF_NAME: "Scrypted",
-    CONF_USERNAME: "user",
-    CONF_PASSWORD: "pass",
+    CONF_USERNAME: USERNAME,
+    CONF_PASSWORD: PASSWORD,
 }
 
 
@@ -66,7 +67,7 @@ async def test_user_flow_invalid_credentials_shows_error(
 
 async def test_reauth_credentials_invalid_sets_error(hass, mock_retrieve_token_error):
     """Test case for test_reauth_credentials_invalid_sets_error."""
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: EXAMPLE_HOST})
     entry.add_to_hass(hass)
     context_data = {**entry.data, CONF_PASSWORD: "old"}
     init_result = await hass.config_entries.flow.async_init(
@@ -88,7 +89,7 @@ async def test_reauth_upgrade_defaults_from_context_options(hass):
     """Test case for test_reauth_upgrade_defaults_from_context_options."""
     entry = MockConfigEntry(
         domain=DOMAIN,
-        data={CONF_HOST: "example"},
+        data={CONF_HOST: EXAMPLE_HOST},
         options={CONF_AUTO_REGISTER_RESOURCES: True},
     )
     entry.add_to_hass(hass)
@@ -110,7 +111,7 @@ async def test_reauth_upgrade_defaults_from_context_options(hass):
 
 async def test_reauth_without_password_shows_upgrade_step(hass):
     """Test case for test_reauth_without_password_shows_upgrade_step."""
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: EXAMPLE_HOST})
     entry.add_to_hass(hass)
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -126,7 +127,7 @@ async def test_reauth_without_password_shows_upgrade_step(hass):
 
 async def test_reauth_credentials_triggers_reload(hass, mock_async_reload):
     """Test case for test_reauth_credentials_triggers_reload."""
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: EXAMPLE_HOST})
     entry.add_to_hass(hass)
     context_data = {**entry.data, CONF_PASSWORD: "old"}
     init_result = await hass.config_entries.flow.async_init(
@@ -151,8 +152,8 @@ async def test_reauth_duplicate_host_sets_error(hass):
     current = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "current"})
     existing = MockConfigEntry(
         domain=DOMAIN,
-        data={CONF_HOST: "example"},
-        unique_id="example",
+        data={CONF_HOST: EXAMPLE_HOST},
+        unique_id=EXAMPLE_HOST,
     )
     current.add_to_hass(hass)
     existing.add_to_hass(hass)
@@ -231,7 +232,7 @@ async def test_options_flow_init_shows_general_step(hass):
     """Test that initializing the options flow shows the general step."""
     entry = MockConfigEntry(
         domain=DOMAIN,
-        data={CONF_HOST: "example"},
+        data={CONF_HOST: EXAMPLE_HOST},
         options={
             CONF_AUTO_REGISTER_RESOURCES: True,
             CONF_SCRYPTED_NVR: False,
@@ -248,7 +249,7 @@ async def test_options_flow_complete_end_to_end(hass):
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
         },
@@ -275,5 +276,5 @@ async def test_validate_input_missing_field_returns_false(hass):
     """Test case for test_validate_input_missing_field_returns_false."""
     flow = config_flow.ScryptedConfigFlow()
     flow.hass = hass
-    data = {CONF_HOST: "example", CONF_ICON: "mdi:test"}
+    data = {CONF_HOST: EXAMPLE_HOST, CONF_ICON: "mdi:test"}
     assert await flow.validate_input(data) is False

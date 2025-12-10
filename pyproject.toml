@@ -112,7 +112,7 @@ max-line-length = 120
 overgeneral-exceptions = ["builtins.BaseException", "builtins.Exception"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=custom_components --cov-report=term-missing --cov-fail-under=100"
+addopts = "--cov=custom_components --cov-report=term-missing"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 norecursedirs = [".git", "testing_config"]

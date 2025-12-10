@@ -1,0 +1,10 @@
+"""Shared constants for tests."""
+
+HOST_WITH_PORT = "192.168.1.100:10443"
+HOST_WITHOUT_PORT = "192.168.1.100"
+EXAMPLE_HOST = "example"
+USERNAME = "testuser"
+PASSWORD = "testpass"
+TOKEN = "test_token"
+API_PATH = "api/path"
+GENERIC_PATH = "some/path"

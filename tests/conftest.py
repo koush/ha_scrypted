@@ -1,37 +1,55 @@
 """Shared pytest fixtures for Scrypted tests."""
 
-import importlib
+import asyncio
+import json
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from aiohttp import ClientConnectorError
+from aiohttp import ClientConnectorError, web
 import pytest
 
-from homeassistant import loader
+from homeassistant.const import CONF_HOST
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
 from custom_components import scrypted  # noqa: E402
-from custom_components.scrypted import config_flow  # noqa: E402
+from custom_components.scrypted import config_flow, http  # noqa: E402
 from custom_components.scrypted.const import DOMAIN  # noqa: E402
 
+# ---------------------------------------------------------------------------
+# Fixture loading helpers
+# ---------------------------------------------------------------------------
+
+
+def load_fixture(name: str) -> dict:
+    """Load a JSON fixture file."""
+    with open(Path(__file__).parent / "fixtures" / name, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def login_success_fixture() -> dict:
+    """Load the successful login response fixture."""
+    return load_fixture("login_success.json")
+
+
+@pytest.fixture
+def login_error_not_logged_in_fixture() -> dict:
+    """Load the not logged in error fixture."""
+    return load_fixture("login_error_not_logged_in.json")
+
+
+@pytest.fixture
+def login_error_incorrect_password_fixture() -> dict:
+    """Load the incorrect password error fixture."""
+    return load_fixture("login_error_incorrect_password.json")
+
 
 @pytest.fixture(autouse=True)
-def _register_scrypted_flow(hass):
-    """Register the config flow module so HA can resolve it."""
-    module = importlib.import_module("custom_components.scrypted.config_flow")
-    hass.data[loader.DATA_COMPONENTS][f"{DOMAIN}.config_flow"] = module
-
-
-@pytest.fixture(autouse=True)
-def mock_async_get_clientsession():
-    """Prevent tests from creating real aiohttp sessions."""
-    fake_session = SimpleNamespace()
-    with (
-        patch.object(scrypted, "async_get_clientsession", return_value=fake_session),
-        patch.object(config_flow, "async_get_clientsession", return_value=fake_session),
-    ):
-        yield fake_session
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Allow loading this custom integration in tests."""
+    yield
 
 
 @pytest.fixture(autouse=True)
@@ -248,3 +266,80 @@ def mock_panel_lifecycle(mock_unregister_lovelace_resource, mock_forward_entry_s
         patch.object(scrypted, "async_remove_panel", side_effect=remove_panel),
     ):
         yield {"registered": registered_panels, "removed": removed_panels}
+
+
+# ---------------------------------------------------------------------------
+# HTTP module test fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_web_request():
+    """Create a factory for mock aiohttp web.Request objects."""
+
+    def _create_request(
+        headers: dict | None = None,
+        peername: tuple | None = ("192.168.1.50", 12345),
+        host: str = "localhost:8123",
+        scheme: str = "https",
+    ) -> MagicMock:
+        mock_request = MagicMock(spec=web.Request)
+        mock_request.headers = headers or {}
+        mock_transport = MagicMock()
+        mock_transport.get_extra_info.return_value = peername
+        mock_request.transport = mock_transport
+        mock_request.host = host
+        mock_request.url = MagicMock()
+        mock_request.url.scheme = scheme
+        return mock_request
+
+    return _create_request
+
+
+@pytest.fixture
+def mock_aiohttp_session():
+    """Create a mock aiohttp ClientSession."""
+    session = MagicMock()
+    session.loop = asyncio.get_event_loop()
+    return session
+
+
+@pytest.fixture
+async def scrypted_view(hass, mock_aiohttp_session):
+    """Create a ScryptedView instance with mocked file loading."""
+    hass.data[DOMAIN] = {}
+
+    def _sync_executor(func, *args):
+        return func(*args)
+
+    with (
+        patch.object(hass, "async_add_executor_job", side_effect=_sync_executor),
+        patch.object(http.ScryptedView, "load_files") as mock_load,
+    ):
+        view = http.ScryptedView(hass, mock_aiohttp_session)
+    # Set up futures with test content
+    view.lit_core = asyncio.Future()
+    view.lit_core.set_result("lit-core-content")
+    view.entrypoint_js = asyncio.Future()
+    view.entrypoint_js.set_result("__DOMAIN__ __TOKEN__ js-content")
+    view.entrypoint_html = asyncio.Future()
+    view.entrypoint_html.set_result("__DOMAIN__ __TOKEN__ core html-content")
+    mock_load.assert_called_once()
+    return view
+
+
+@pytest.fixture
+def mock_config_entry():
+    """Create a factory for mock config entries."""
+
+    def _create_entry(
+        host: str = "192.168.1.100:10443",
+        data: dict | None = None,
+        options: dict | None = None,
+    ) -> MagicMock:
+        mock_entry = MagicMock()
+        mock_entry.data = {CONF_HOST: host, **(data or {})}
+        mock_entry.options = options or {}
+        return mock_entry
+
+    return _create_entry

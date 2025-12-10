@@ -29,6 +29,7 @@ from custom_components.scrypted.const import (
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
+from tests.const import EXAMPLE_HOST
 
 
 class FakeStorageResources(ResourceStorageCollection):
@@ -127,7 +128,7 @@ async def test_unregister_storage_removes_resources(hass):
     )
     hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
     hass.data[scrypted._RESOURCE_TRACKER] = {"entry": {f"{base}.js", f"{base}.css"}}
-    await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
+    await scrypted._async_unregister_lovelace_resource(hass, "entry")
     assert set(resources.deleted) == {10, 11}
     assert scrypted._RESOURCE_TRACKER not in hass.data
 
@@ -135,20 +136,20 @@ async def test_unregister_storage_removes_resources(hass):
 async def test_unregister_empty_tracked_urls_cleans_tracker(hass):
     """Test case for test_unregister_empty_tracked_urls_cleans_tracker."""
     hass.data[scrypted._RESOURCE_TRACKER] = {"entry": set()}
-    await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
+    await scrypted._async_unregister_lovelace_resource(hass, "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
 
 
 async def test_unregister_without_lovelace_data_cleans_tracker(hass):
     """Test case for test_unregister_without_lovelace_data_cleans_tracker."""
     hass.data[scrypted._RESOURCE_TRACKER] = {"entry": {"/missing"}}
-    await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
+    await scrypted._async_unregister_lovelace_resource(hass, "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
 
 
 async def test_unregister_without_tracker_is_noop(hass):
     """Test case for test_unregister_without_tracker_is_noop."""
-    await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
+    await scrypted._async_unregister_lovelace_resource(hass, "entry")
     assert scrypted._RESOURCE_TRACKER not in hass.data
 
 
@@ -158,7 +159,7 @@ async def test_unregister_logs_missing_resources(hass, caplog):
     resources = FakeStorageResources([{CONF_ID: 10, CONF_URL: f"{base}.js"}])
     hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
     hass.data[scrypted._RESOURCE_TRACKER] = {"entry": {f"{base}.js", f"{base}.css"}}
-    await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
+    await scrypted._async_unregister_lovelace_resource(hass, "entry")
     assert resources.deleted == [10]
     assert "was not found" in caplog.text
 
@@ -174,7 +175,7 @@ async def test_unregister_yaml_resources_skip_deletion(hass):
     )
     hass.data[LL_DOMAIN] = SimpleNamespace(resources=resources)
     hass.data[scrypted._RESOURCE_TRACKER] = {"entry": {f"{base}.js", f"{base}.css"}}
-    await scrypted._async_unregister_lovelace_resource(hass, "tok", "entry")
+    await scrypted._async_unregister_lovelace_resource(hass, "entry")
     assert not resources.deleted
 
 
@@ -194,7 +195,7 @@ async def test_async_setup_imports_yaml_config(
 ):
     """Test case for test_async_setup_imports_yaml_config."""
     hass.http = SimpleNamespace(register_view=lambda view: None)
-    result = await scrypted.async_setup(hass, {DOMAIN: {"host": "example"}})
+    result = await scrypted.async_setup(hass, {DOMAIN: {"host": EXAMPLE_HOST}})
     await hass.async_block_till_done()
     assert result is False
     mock_flow_async_init.assert_awaited()
@@ -215,7 +216,7 @@ async def test_async_setup_entry_registers_resources_and_panel(
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -248,7 +249,7 @@ async def test_async_setup_entry_moves_auto_register_flag(
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -287,7 +288,7 @@ async def test_update_listener_moves_option_keys(hass, mock_async_reload):
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -310,7 +311,7 @@ async def test_ensure_entry_options_no_changes(hass, mock_async_update_entry):
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -331,7 +332,7 @@ async def test_ensure_entry_options_adds_defaults(hass, mock_async_update_entry)
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -351,7 +352,7 @@ async def test_async_setup_entry_handles_missing_token(
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -375,7 +376,7 @@ async def test_async_setup_entry_client_connector_error(
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -397,7 +398,7 @@ async def test_async_setup_entry_other_exception_propagates(
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -419,7 +420,7 @@ async def test_async_unload_entry(
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -442,7 +443,7 @@ async def test_panel_registered_with_entry_id(
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -468,7 +469,7 @@ async def test_panel_unregistered_with_entry_id(
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",
@@ -490,7 +491,7 @@ async def test_panel_reload_uses_consistent_url_path(hass, mock_panel_lifecycle)
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_HOST: "example",
+            CONF_HOST: EXAMPLE_HOST,
             CONF_ICON: "mdi:test",
             CONF_NAME: "Scrypted",
             CONF_USERNAME: "user",

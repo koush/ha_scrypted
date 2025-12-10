@@ -8,20 +8,21 @@ from homeassistant.const import CONF_HOST
 
 from custom_components.scrypted import sensor
 from custom_components.scrypted.const import DOMAIN
+from tests.const import EXAMPLE_HOST
 
 
 def test_sensor_attributes():
     """Test case for test_sensor_attributes."""
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: EXAMPLE_HOST})
     entity = sensor.ScryptedTokenSensor(entry, "token")
-    assert entity.name == "Scrypted token: example"
+    assert entity.name == f"Scrypted token: {EXAMPLE_HOST}"
     assert entity.native_value == "token"
-    assert entity.extra_state_attributes[CONF_HOST] == "example"
+    assert entity.extra_state_attributes[CONF_HOST] == EXAMPLE_HOST
 
 
 async def test_async_setup_entry_adds_token_sensor(hass):
     """Test case for test_async_setup_entry_adds_token_sensor."""
-    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: EXAMPLE_HOST})
     entry.add_to_hass(hass)
     hass.data.setdefault(DOMAIN, {})["token"] = entry
     added = []
