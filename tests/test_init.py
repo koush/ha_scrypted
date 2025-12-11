@@ -488,8 +488,8 @@ async def test_async_unload_entry(hass, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_panel_registered_with_entry_id(hass, monkeypatch):
-    """Test that panel is registered using config entry ID in the URL path."""
+async def test_panel_registered_with_token(hass, monkeypatch):
+    """Test that panel is registered using token in the URL path."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -513,12 +513,12 @@ async def test_panel_registered_with_entry_id(hass, monkeypatch):
     monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
     result = await scrypted.async_setup_entry(hass, entry)
     assert result is True
-    assert panel_kwargs["frontend_url_path"] == f"{DOMAIN}_{entry.entry_id}"
+    assert panel_kwargs["frontend_url_path"] == f"{DOMAIN}_token"
 
 
 @pytest.mark.asyncio
-async def test_panel_unregistered_with_entry_id(hass, monkeypatch):
-    """Test that panel is unregistered using the same entry ID-based URL path."""
+async def test_panel_unregistered_with_token(hass, monkeypatch):
+    """Test that panel is unregistered using the same token-based URL path."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -540,7 +540,7 @@ async def test_panel_unregistered_with_entry_id(hass, monkeypatch):
     )
     result = await scrypted.async_unload_entry(hass, entry)
     assert result is True
-    assert removed_panels == [f"{DOMAIN}_{entry.entry_id}"]
+    assert removed_panels == [f"{DOMAIN}_token"]
 
 
 @pytest.mark.asyncio
@@ -548,7 +548,7 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
     """Test that panel can be reloaded without 'Overwriting panel' errors.
 
     This verifies that both registration and unregistration use the same
-    entry ID-based URL path, allowing clean reloads.
+    token-based URL path, allowing clean reloads.
     """
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -587,12 +587,12 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
     # First setup
     result = await scrypted.async_setup_entry(hass, entry)
     assert result is True
-    assert f"{DOMAIN}_{entry.entry_id}" in registered_panels
+    assert f"{DOMAIN}_token" in registered_panels
 
     # Unload
     result = await scrypted.async_unload_entry(hass, entry)
     assert result is True
-    assert f"{DOMAIN}_{entry.entry_id}" not in registered_panels
+    assert f"{DOMAIN}_token" not in registered_panels
 
     # Re-add token mapping for second setup
     hass.data.setdefault(DOMAIN, {})
@@ -600,4 +600,4 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
     # Second setup (simulating reload) - should not raise ValueError
     result = await scrypted.async_setup_entry(hass, entry)
     assert result is True
-    assert f"{DOMAIN}_{entry.entry_id}" in registered_panels
+    assert f"{DOMAIN}_token" in registered_panels
