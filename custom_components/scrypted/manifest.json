@@ -4,7 +4,7 @@
   "version": "0.0.10",
   "codeowners": ["@koush"],
   "config_flow": true,
-  "dependencies": ["http", "lovelace"],
+  "dependencies": ["http", "frontend"],
   "issue_tracker": "https://github.com/koush/ha_scrypted/issues",
   "documentation": "https://www.home-assistant.io/integrations/scrypted",
   "homekit": {},
