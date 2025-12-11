@@ -262,7 +262,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         "custom",
         sidebar_title=config_entry.data[CONF_NAME],
         sidebar_icon=config_entry.data[CONF_ICON],
-        frontend_url_path=f"{DOMAIN}_{config_entry.entry_id}",
+        frontend_url_path=f"{DOMAIN}_{token}",
         config=panel_conf,
         require_admin=False,
     )
@@ -285,7 +285,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
     hass.data[DOMAIN].pop(token)
     if not hass.data[DOMAIN]:
         hass.data.pop(DOMAIN)
-    async_remove_panel(hass, f"{DOMAIN}_{config_entry.entry_id}")
+    async_remove_panel(hass, f"{DOMAIN}_{token}")
     return True
 
 
