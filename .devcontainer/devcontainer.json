@@ -21,6 +21,7 @@
         "vscode": {
             "extensions": [
                 "charliermarsh.ruff",
+                "keesschollaart.vscode-home-assistant",
                 "ms-python.debugpy",
                 "ms-python.python",
                 "ms-python.vscode-pylance",
