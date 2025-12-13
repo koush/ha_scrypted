@@ -60,11 +60,12 @@ def mock_retrieve_token():
         return "token"
 
     with (
-        patch.object(
-            scrypted, "retrieve_token", side_effect=_fake_retrieve
+        patch(
+            "custom_components.scrypted.retrieve_token", side_effect=_fake_retrieve
         ) as scrypted_mock,
-        patch.object(
-            config_flow, "retrieve_token", side_effect=_fake_retrieve
+        patch(
+            "custom_components.scrypted.config_flow.retrieve_token",
+            side_effect=_fake_retrieve,
         ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
@@ -83,9 +84,12 @@ def mock_retrieve_token_error():
         raise ValueError
 
     with (
-        patch.object(scrypted, "retrieve_token", side_effect=_raise) as scrypted_mock,
-        patch.object(
-            config_flow, "retrieve_token", side_effect=_raise
+        patch(
+            "custom_components.scrypted.retrieve_token", side_effect=_raise
+        ) as scrypted_mock,
+        patch(
+            "custom_components.scrypted.config_flow.retrieve_token",
+            side_effect=_raise,
         ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
@@ -99,11 +103,12 @@ def mock_retrieve_token_none():
         return None
 
     with (
-        patch.object(
-            scrypted, "retrieve_token", side_effect=_no_token
+        patch(
+            "custom_components.scrypted.retrieve_token", side_effect=_no_token
         ) as scrypted_mock,
-        patch.object(
-            config_flow, "retrieve_token", side_effect=_no_token
+        patch(
+            "custom_components.scrypted.config_flow.retrieve_token",
+            side_effect=_no_token,
         ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
@@ -112,8 +117,9 @@ def mock_retrieve_token_none():
 @pytest.fixture
 def mock_register_lovelace_resource():
     """Patch _async_register_lovelace_resource."""
-    with patch.object(
-        scrypted, "_async_register_lovelace_resource", new_callable=AsyncMock
+    with patch(
+        "custom_components.scrypted._async_register_lovelace_resource",
+        new_callable=AsyncMock,
     ) as mock:
         yield mock
 
@@ -121,8 +127,9 @@ def mock_register_lovelace_resource():
 @pytest.fixture
 def mock_unregister_lovelace_resource():
     """Patch _async_unregister_lovelace_resource."""
-    with patch.object(
-        scrypted, "_async_unregister_lovelace_resource", new_callable=AsyncMock
+    with patch(
+        "custom_components.scrypted._async_unregister_lovelace_resource",
+        new_callable=AsyncMock,
     ) as mock:
         yield mock
 
@@ -135,8 +142,9 @@ def mock_register_built_in_panel():
     def _capture(*args, **kwargs):
         captured_kwargs.update(kwargs)
 
-    with patch.object(
-        scrypted, "async_register_built_in_panel", side_effect=_capture
+    with patch(
+        "custom_components.scrypted.async_register_built_in_panel",
+        side_effect=_capture,
     ) as mock:
         mock.captured_kwargs = captured_kwargs
         yield mock
@@ -150,7 +158,9 @@ def mock_remove_panel():
     def _remove(hass, panel_name):
         removed_panels.append(panel_name)
 
-    with patch.object(scrypted, "async_remove_panel", side_effect=_remove) as mock:
+    with patch(
+        "custom_components.scrypted.async_remove_panel", side_effect=_remove
+    ) as mock:
         mock.removed_panels = removed_panels
         yield mock
 
@@ -158,8 +168,9 @@ def mock_remove_panel():
 @pytest.fixture
 def mock_forward_entry_setups(hass):
     """Patch hass.config_entries.async_forward_entry_setups."""
-    with patch.object(
-        hass.config_entries, "async_forward_entry_setups", new_callable=AsyncMock
+    with patch(
+        "homeassistant.config_entries.ConfigEntries.async_forward_entry_setups",
+        new_callable=AsyncMock,
     ) as mock:
         yield mock
 
@@ -167,8 +178,9 @@ def mock_forward_entry_setups(hass):
 @pytest.fixture
 def mock_async_reload(hass):
     """Patch hass.config_entries.async_reload."""
-    with patch.object(
-        hass.config_entries, "async_reload", new_callable=AsyncMock
+    with patch(
+        "homeassistant.config_entries.ConfigEntries.async_reload",
+        new_callable=AsyncMock,
     ) as mock:
         yield mock
 
@@ -176,8 +188,9 @@ def mock_async_reload(hass):
 @pytest.fixture
 def mock_flow_async_init(hass):
     """Patch hass.config_entries.flow.async_init."""
-    with patch.object(
-        hass.config_entries.flow, "async_init", new_callable=AsyncMock
+    with patch(
+        "homeassistant.config_entries.ConfigEntriesFlowManager.async_init",
+        new_callable=AsyncMock,
     ) as mock:
         mock.return_value = {"type": "form"}
         yield mock
@@ -186,7 +199,9 @@ def mock_flow_async_init(hass):
 @pytest.fixture
 def mock_async_update_entry(hass):
     """Patch hass.config_entries.async_update_entry."""
-    with patch.object(hass.config_entries, "async_update_entry") as mock:
+    with patch(
+        "homeassistant.config_entries.ConfigEntries.async_update_entry"
+    ) as mock:
         yield mock
 
 
@@ -198,7 +213,7 @@ def mock_async_create_notification():
     def _create(*args, **kwargs):
         notifications["created"] = (args, kwargs)
 
-    with patch.object(scrypted, "async_create", side_effect=_create) as mock:
+    with patch("custom_components.scrypted.async_create", side_effect=_create) as mock:
         mock.notifications = notifications
         yield mock
 
@@ -206,7 +221,7 @@ def mock_async_create_notification():
 @pytest.fixture
 def mock_scrypted_view():
     """Patch ScryptedView."""
-    with patch.object(scrypted, "ScryptedView", return_value="view") as mock:
+    with patch("custom_components.scrypted.ScryptedView", return_value="view") as mock:
         yield mock
 
 
@@ -218,9 +233,12 @@ def mock_retrieve_token_client_error():
         raise ClientConnectorError(SimpleNamespace(), OSError())
 
     with (
-        patch.object(scrypted, "retrieve_token", side_effect=_raise) as scrypted_mock,
-        patch.object(
-            config_flow, "retrieve_token", side_effect=_raise
+        patch(
+            "custom_components.scrypted.retrieve_token", side_effect=_raise
+        ) as scrypted_mock,
+        patch(
+            "custom_components.scrypted.config_flow.retrieve_token",
+            side_effect=_raise,
         ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
@@ -234,9 +252,12 @@ def mock_retrieve_token_runtime_error():
         raise RuntimeError("boom")
 
     with (
-        patch.object(scrypted, "retrieve_token", side_effect=_raise) as scrypted_mock,
-        patch.object(
-            config_flow, "retrieve_token", side_effect=_raise
+        patch(
+            "custom_components.scrypted.retrieve_token", side_effect=_raise
+        ) as scrypted_mock,
+        patch(
+            "custom_components.scrypted.config_flow.retrieve_token",
+            side_effect=_raise,
         ) as config_flow_mock,
     ):
         yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
@@ -260,10 +281,14 @@ def mock_panel_lifecycle(mock_unregister_lovelace_resource, mock_forward_entry_s
         removed_panels.append(panel_name)
 
     with (
-        patch.object(
-            scrypted, "async_register_built_in_panel", side_effect=register_panel
+        patch(
+            "custom_components.scrypted.async_register_built_in_panel",
+            side_effect=register_panel,
         ),
-        patch.object(scrypted, "async_remove_panel", side_effect=remove_panel),
+        patch(
+            "custom_components.scrypted.async_remove_panel",
+            side_effect=remove_panel,
+        ),
     ):
         yield {"registered": registered_panels, "removed": removed_panels}
 
@@ -309,12 +334,16 @@ async def scrypted_view(hass, mock_aiohttp_session):
     """Create a ScryptedView instance with mocked file loading."""
     hass.data[DOMAIN] = {}
 
-    def _sync_executor(func, *args):
-        return func(*args)
+    def _sync_executor(self, func, *args, **kwargs):
+        return func(*args, **kwargs)
 
     with (
-        patch.object(hass, "async_add_executor_job", side_effect=_sync_executor),
-        patch.object(http.ScryptedView, "load_files") as mock_load,
+        patch.object(
+            hass,
+            "async_add_executor_job",
+            side_effect=lambda func, *args, **kwargs: func(*args, **kwargs),
+        ),
+        patch("custom_components.scrypted.http.ScryptedView.load_files") as mock_load,
     ):
         view = http.ScryptedView(hass, mock_aiohttp_session)
     # Set up futures with test content

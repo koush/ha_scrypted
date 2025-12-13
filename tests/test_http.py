@@ -365,8 +365,10 @@ async def test_handle_proxies_to_websocket(hass, scrypted_view, mock_web_request
     )
 
     mock_ws_response = MagicMock()
-    with patch.object(
-        scrypted_view, "_handle_websocket", return_value=mock_ws_response
+    with patch(
+        "custom_components.scrypted.http.ScryptedView._handle_websocket",
+        new_callable=AsyncMock,
+        return_value=mock_ws_response,
     ) as mock_ws:
         response = await scrypted_view._handle(request, HTTP_TOKEN, HTTP_PATH)
 
@@ -380,8 +382,10 @@ async def test_handle_proxies_to_request(hass, scrypted_view, mock_web_request):
     request = mock_web_request(headers={"Connection": "keep-alive"})
 
     mock_response = MagicMock()
-    with patch.object(
-        scrypted_view, "_handle_request", return_value=mock_response
+    with patch(
+        "custom_components.scrypted.http.ScryptedView._handle_request",
+        new_callable=AsyncMock,
+        return_value=mock_response,
     ) as mock_req:
         response = await scrypted_view._handle(request, HTTP_TOKEN, HTTP_API_PATH)
 
@@ -396,8 +400,10 @@ async def test_handle_raises_bad_gateway_on_client_error(
     _register_entry(hass)
     request = mock_web_request(headers={"Connection": "keep-alive"})
 
-    with patch.object(
-        scrypted_view, "_handle_request", side_effect=aiohttp.ClientError()
+    with patch(
+        "custom_components.scrypted.http.ScryptedView._handle_request",
+        new_callable=AsyncMock,
+        side_effect=aiohttp.ClientError(),
     ):
         with pytest.raises(HTTPBadGateway):
             await scrypted_view._handle(request, HTTP_TOKEN, HTTP_API_PATH)
@@ -508,7 +514,6 @@ async def test_handle_request_streams_large_responses(
     assert response == fake_stream
 
 
-@pytest.mark.asyncio
 async def test_websocket_forward_handles_message_types():
     """_websocket_forward should route text, binary, ping, and pong frames."""
 
@@ -590,7 +595,7 @@ def test_load_files():
     def fake_read_text(self, encoding="utf-8"):
         return file_contents[self.name]
 
-    with patch.object(Path, "read_text", side_effect=fake_read_text, autospec=True):
+    with patch("pathlib.Path.read_text", side_effect=fake_read_text, autospec=True):
         http.ScryptedView.load_files(view, loop)
 
     loop.run_until_complete(asyncio.sleep(0))
