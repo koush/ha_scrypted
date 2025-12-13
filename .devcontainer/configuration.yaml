@@ -1,0 +1,13 @@
+# Home Assistant configuration for development
+
+default_config:
+
+logger:
+  default: info
+  logs:
+    custom_components.scrypted: debug
+
+debugpy:
+  start: true
+  wait: "${ENV_DEBUGPY_WAIT:-false}"
+  listen: 5678

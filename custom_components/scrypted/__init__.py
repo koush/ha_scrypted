@@ -28,9 +28,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import CONF_AUTO_REGISTER_RESOURCES, CONF_SCRYPTED_NVR, DOMAIN
 from .http import ScryptedView, retrieve_token
 
-PLATFORMS = [
-    Platform.SENSOR
-]
+PLATFORMS = [Platform.SENSOR]
 
 _LOGGER = logging.getLogger(__name__)
 _RESOURCE_TRACKER = f"{DOMAIN}_lovelace_resources"
@@ -62,7 +60,9 @@ async def _async_register_lovelace_resource(
     if not lovelace_data or not lovelace_data.resources:
         return
 
-    resources: ResourceStorageCollection | ResourceYAMLCollection = lovelace_data.resources
+    resources: ResourceStorageCollection | ResourceYAMLCollection = (
+        lovelace_data.resources
+    )
     if not resources.loaded:
         await resources.async_load()
         resources.loaded = True
@@ -71,7 +71,6 @@ async def _async_register_lovelace_resource(
     tracker: dict[str, set[str]] = hass.data.setdefault(_RESOURCE_TRACKER, {})
     entry_tracker = tracker.setdefault(entry_id, set())
 
-    created_resource = False
     for resource_type, resource_url in _get_card_resource_definitions(token):
         # Skip creation when Home Assistant already has an entry for this URL.
         try:
@@ -96,7 +95,6 @@ async def _async_register_lovelace_resource(
                 {CONF_RESOURCE_TYPE_WS: resource_type, CONF_URL: resource_url}
             )
             entry_tracker.add(resource_url)
-            created_resource = True
             _LOGGER.debug(
                 "Registered Scrypted Lovelace resource (resource ID %s) for entry %s",
                 data.get(CONF_ID),
@@ -115,7 +113,7 @@ async def _async_register_lovelace_resource(
 
 
 async def _async_unregister_lovelace_resource(
-    hass: HomeAssistant, token: str, entry_id: str
+    hass: HomeAssistant, entry_id: str
 ) -> None:
     """Remove any Lovelace resources created for this entry.
 
@@ -138,7 +136,9 @@ async def _async_unregister_lovelace_resource(
             hass.data.pop(_RESOURCE_TRACKER, None)
         return
 
-    resources: ResourceStorageCollection | ResourceYAMLCollection = lovelace_data.resources
+    resources: ResourceStorageCollection | ResourceYAMLCollection = (
+        lovelace_data.resources
+    )
     if not resources.loaded:
         await resources.async_load()
         resources.loaded = True
@@ -225,19 +225,17 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
     changed = await _async_ensure_entry_options(hass, config_entry)
     if changed:
-        hass.async_create_task(
-            hass.config_entries.async_reload(config_entry.entry_id)
-        )
+        hass.async_create_task(hass.config_entries.async_reload(config_entry.entry_id))
         return False
 
     session = async_get_clientsession(hass, verify_ssl=False)
     try:
         if not (token := await retrieve_token(config_entry.data, session)):
             return _reauth(config_entry.data)
-    except Exception as e:
-        if isinstance(e, ClientConnectorError):
-            raise ConfigEntryNotReady("ClientConnectorError. Is the Scrypted host down? Retrying.")
-        raise e
+    except ClientConnectorError as e:
+        raise ConfigEntryNotReady(
+            "ClientConnectorError. Is the Scrypted host down? Retrying."
+        ) from e
 
     hass.data.setdefault(DOMAIN, {})[token] = config_entry
     config_entry.async_on_unload(
@@ -254,9 +252,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         "module_url": f"/api/{DOMAIN}/{token}/entrypoint.js",
     }
 
-    panelconf = {}
-    panelconf["_panel_custom"] = custom_panel_config
-    panelconf["version"] = "1.0.0"
+    panel_conf = {
+        "_panel_custom": custom_panel_config,
+        "version": "1.0.0",
+    }
 
     async_register_built_in_panel(
         hass,
@@ -264,14 +263,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         sidebar_title=config_entry.data[CONF_NAME],
         sidebar_icon=config_entry.data[CONF_ICON],
         frontend_url_path=f"{DOMAIN}_{token}",
-        config=panelconf,
+        config=panel_conf,
         require_admin=False,
     )
 
     # Set up token sensor
-    await hass.config_entries.async_forward_entry_setups(
-        config_entry, PLATFORMS
-    )
+    await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
     return True
 
 
@@ -283,7 +280,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
         if entry.entry_id == config_entry.entry_id
     )
 
-    await _async_unregister_lovelace_resource(hass, token, config_entry.entry_id)
+    await _async_unregister_lovelace_resource(hass, config_entry.entry_id)
 
     hass.data[DOMAIN].pop(token)
     if not hass.data[DOMAIN]:
@@ -292,18 +289,18 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
     return True
 
 
-async def _async_update_listener(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+async def _async_update_listener(
+    hass: HomeAssistant, config_entry: ConfigEntry
+) -> None:
     """Ensure option keys stay in the options dict and reload on change."""
-
     await _async_ensure_entry_options(hass, config_entry)
-    hass.async_create_task(
-        hass.config_entries.async_reload(config_entry.entry_id)
-    )
+    hass.async_create_task(hass.config_entries.async_reload(config_entry.entry_id))
 
 
-async def _async_ensure_entry_options(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+async def _async_ensure_entry_options(
+    hass: HomeAssistant, config_entry: ConfigEntry
+) -> bool:
     """Move option fields into options and ensure defaults exist."""
-
     data = dict(config_entry.data)
     options = dict(config_entry.options)
     changed = False
@@ -320,8 +317,6 @@ async def _async_ensure_entry_options(hass: HomeAssistant, config_entry: ConfigE
             changed = True
 
     if changed:
-        hass.config_entries.async_update_entry(
-            config_entry, data=data, options=options
-        )
+        hass.config_entries.async_update_entry(config_entry, data=data, options=options)
 
     return changed

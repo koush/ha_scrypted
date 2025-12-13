@@ -1,0 +1,11 @@
+{
+  "error": "Not logged in.",
+  "hasLogin": true,
+  "externalAddresses": [
+    "https://example.trycloudflare.com"
+  ],
+  "addresses": [
+    "https://192.168.1.100:10443"
+  ],
+  "hostname": "docker"
+}

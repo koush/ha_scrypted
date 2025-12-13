@@ -1,5 +1,5 @@
+-r requirements_lint.txt
+-r requirements_test.txt
+colorlog
+debugpy
 homeassistant>=2023.6.2
-pytest
-pytest-asyncio
-pytest-cov
-pytest-homeassistant-custom-component
