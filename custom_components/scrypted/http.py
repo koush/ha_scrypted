@@ -45,10 +45,18 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
         verify_ssl=False,
     )
     resp_json = await resp.json()
-    if "token" not in resp_json:
+    
+    # Support both old API (token field) and new API (authorization field)
+    token = resp_json.get("token")
+    if not token:
+        authorization = resp_json.get("authorization", "")
+        if authorization.startswith("Bearer "):
+            token = authorization[7:]  # Remove "Bearer " prefix
+    
+    if not token:
         raise ValueError("No token in response")
 
-    return resp_json["token"]
+    return token
 
 
 class ScryptedView(HomeAssistantView):
@@ -314,13 +322,21 @@ def _response_header(response: aiohttp.ClientResponse) -> dict[str, str]:
     """Create response header."""
     headers = {}
 
+    skip_headers = (
+        hdrs.TRANSFER_ENCODING,
+        hdrs.CONTENT_LENGTH,
+        hdrs.CONTENT_TYPE,
+        hdrs.CONTENT_ENCODING,
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Credentials",
+        "Access-Control-Allow-Methods",
+        "Access-Control-Allow-Headers",
+        "Access-Control-Expose-Headers",
+        "Access-Control-Max-Age",
+    )
+
     for name, value in response.headers.items():
-        if name in (
-            hdrs.TRANSFER_ENCODING,
-            hdrs.CONTENT_LENGTH,
-            hdrs.CONTENT_TYPE,
-            hdrs.CONTENT_ENCODING,
-        ):
+        if name in skip_headers:
             continue
         headers[name] = value
 
