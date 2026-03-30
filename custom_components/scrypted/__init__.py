@@ -40,6 +40,9 @@ _OPTION_DEFAULTS = {
 }
 
 
+ScryptedRuntimeState = dict[str, Any]
+
+
 def _get_card_resource_definitions(token: str) -> list[tuple[str, str]]:
     """Return the Lovelace resources that power the Scrypted cards."""
     base_url = f"/api/{DOMAIN}/{token}/endpoint/@scrypted/nvr/assets/web-components"
@@ -239,7 +242,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             raise ConfigEntryNotReady("ClientConnectorError. Is the Scrypted host down? Retrying.")
         raise e
 
-    hass.data.setdefault(DOMAIN, {})[token] = config_entry
+    hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = {
+        "entry": config_entry,
+        "token": token,
+    }
     config_entry.async_on_unload(
         config_entry.add_update_listener(_async_update_listener)
     )
@@ -251,7 +257,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         "name": "ha-panel-scrypted",
         # "embed_iframe": True,
         "trust_external": False,
-        "module_url": f"/api/{DOMAIN}/{token}/entrypoint.js",
+        "module_url": f"/api/{DOMAIN}/{config_entry.entry_id}/entrypoint.js",
     }
 
     panelconf = {}
@@ -263,7 +269,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         "custom",
         sidebar_title=config_entry.data[CONF_NAME],
         sidebar_icon=config_entry.data[CONF_ICON],
-        frontend_url_path=f"{DOMAIN}_{token}",
+        frontend_url_path=f"{DOMAIN}_{config_entry.entry_id}",
         config=panelconf,
         require_admin=False,
     )
@@ -277,18 +283,15 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    token = next(
-        token
-        for token, entry in hass.data[DOMAIN].items()
-        if entry.entry_id == config_entry.entry_id
-    )
+    state: ScryptedRuntimeState = hass.data[DOMAIN][config_entry.entry_id]
+    token = state["token"]
 
     await _async_unregister_lovelace_resource(hass, token, config_entry.entry_id)
 
-    hass.data[DOMAIN].pop(token)
+    hass.data[DOMAIN].pop(config_entry.entry_id)
     if not hass.data[DOMAIN]:
         hass.data.pop(DOMAIN)
-    async_remove_panel(hass, f"{DOMAIN}_{token}")
+    async_remove_panel(hass, f"{DOMAIN}_{config_entry.entry_id}")
     return True
 
 
