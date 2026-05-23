@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from aiohttp import ClientConnectorError
+from aiohttp import ClientConnectorError, ClientResponseError
 
 from homeassistant.components.frontend import (
     async_register_built_in_panel,
@@ -237,6 +237,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     except Exception as e:
         if isinstance(e, ClientConnectorError):
             raise ConfigEntryNotReady("ClientConnectorError. Is the Scrypted host down? Retrying.")
+        if isinstance(e, ClientResponseError) and e.status in (401, 403):
+            _LOGGER.warning(
+                "Scrypted authentication failed (HTTP %s) for %s; starting reauth flow.",
+                e.status, config_entry.title,
+            )
+            return _reauth(config_entry.data)
         raise e
 
     hass.data.setdefault(DOMAIN, {})[token] = config_entry
