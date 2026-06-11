@@ -790,6 +790,10 @@ async def test_remove_config_entry_device_entities_disabled(
     entry.runtime_data = NS(client=None)
     device_entry = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
-        identifiers={(DOMAIN, f"{entry.entry_id}_ghost")},
+        identifiers={
+            ("other_domain", "irrelevant"),
+            (DOMAIN, "other_entry_device"),
+            (DOMAIN, f"{entry.entry_id}_ghost"),
+        },
     )
     assert await scrypted.async_remove_config_entry_device(hass, entry, device_entry)
