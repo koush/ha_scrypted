@@ -74,8 +74,11 @@ class EioRpcTransport(rpc_reader.RpcTransport):
             return
         self.write_queue.put_nowait(buffer)
 
-    def writeJSON(self, json, reject):
-        return self.writeBuffer(json, reject)
+    def writeSerialized(self, j, reject):
+        # engineio json-encodes dict payloads on send and json-decodes text
+        # frames on receive, so messages cross the wire as engine.io JSON
+        # packets and arrive at readLoop() already deserialized to dicts.
+        return self.writeBuffer(j, reject)
 
     async def close(self) -> None:
         """Tear the transport down."""
@@ -132,7 +135,10 @@ async def async_connect_sdk(
     peer.params["print"] = _LOGGER.debug
 
     def get_remote(api, plugin_id_, host_info):
-        remote = plugin_remote.PluginRemote(peer, api, plugin_id_, host_info, loop)
+        cluster_setup = plugin_remote.ClusterSetup(loop, peer)
+        remote = plugin_remote.PluginRemote(
+            cluster_setup, api, plugin_id_, host_info, loop
+        )
         wrapped = remote.setSystemState
 
         async def remote_set_system_state(system_state):
