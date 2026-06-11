@@ -50,10 +50,17 @@ class EioRpcTransport(rpc_reader.RpcTransport):
     ) -> None:
         super().__init__()
         # Passing a session built by HA avoids engineio creating its own SSL
-        # context inside the event loop (a blocking call HA warns about).
-        # engineio never closes externally provided sessions, so we own it.
+        # context inside the event loop (a blocking call HA warns about):
+        # with ssl_verify left True, engineio defers entirely to the session's
+        # connector, which HA builds with a cached no-verify context. Only
+        # fall back to engineio's own ssl_verify=False (which calls
+        # ssl.create_default_context at connect time) when no session is
+        # provided. engineio never closes externally provided sessions, so we
+        # own it.
         self._http_session = http_session
-        self.eio = engineio.AsyncClient(http_session=http_session, ssl_verify=False)
+        self.eio = engineio.AsyncClient(
+            http_session=http_session, ssl_verify=http_session is None
+        )
         self.loop = loop
         self.write_error: Exception | None = None
         self.read_queue: asyncio.Queue = asyncio.Queue()
