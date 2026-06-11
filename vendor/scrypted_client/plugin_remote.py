@@ -1,0 +1,1 @@
+../../../scrypted/server/python/plugin_remote.py

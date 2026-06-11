@@ -3,3 +3,4 @@ pytest
 pytest-asyncio
 pytest-cov
 pytest-homeassistant-custom-component
+python-engineio[asyncio_client]>=4.9.0

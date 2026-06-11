@@ -1,0 +1,1 @@
+../../../scrypted/server/python/cluster_setup.py
