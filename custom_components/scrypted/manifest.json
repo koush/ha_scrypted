@@ -2,15 +2,22 @@
   "domain": "scrypted",
   "name": "Scrypted",
   "version": "0.0.10",
-  "codeowners": ["@koush"],
+  "codeowners": [
+    "@koush"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "frontend"],
+  "dependencies": [
+    "http",
+    "frontend"
+  ],
   "issue_tracker": "https://github.com/koush/ha_scrypted/issues",
   "documentation": "https://www.home-assistant.io/integrations/scrypted",
   "homekit": {},
   "integration_type": "service",
   "iot_class": "local_push",
-  "requirements": [],
+  "requirements": [
+    "python-engineio>=4.9.0"
+  ],
   "ssdp": [],
   "zeroconf": []
 }

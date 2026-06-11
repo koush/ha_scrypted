@@ -611,3 +611,56 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
     result = await scrypted.async_setup_entry(hass, entry)
     assert result is True
     assert f"{DOMAIN}_token" in registered_panels
+
+
+async def test_setup_entry_creates_client_and_unloads(hass, enable_custom_integrations):
+    """Entities enabled: client connects on setup and disconnects on unload."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "host": "1.2.3.4",
+            "username": "u",
+            "password": "p",
+            "name": "Scrypted",
+            "icon": "mdi:memory",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: True,
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    client = entry.runtime_data.client
+    assert client is not None
+    assert client.connected
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert client.connected is False
+
+
+async def test_setup_entry_entities_disabled(hass, enable_custom_integrations):
+    """Entities disabled: no client, panel-only setup still succeeds."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "host": "1.2.3.4",
+            "username": "u",
+            "password": "p",
+            "name": "Scrypted",
+            "icon": "mdi:memory",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.runtime_data.client is None

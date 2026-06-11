@@ -24,8 +24,8 @@ def _register_scrypted_flow(hass):
 def _patch_async_get_clientsession(monkeypatch):
     """Prevent tests from creating real aiohttp sessions."""
 
-    def _fake_session(*args, **kwargs):
-        return SimpleNamespace()
+    def _fake_session(hass, *args, **kwargs):
+        return SimpleNamespace(loop=hass.loop)
 
     monkeypatch.setattr(scrypted, "async_get_clientsession", _fake_session)
     monkeypatch.setattr(config_flow, "async_get_clientsession", _fake_session)

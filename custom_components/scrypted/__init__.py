@@ -1,5 +1,6 @@
 """The Scrypted integration."""
 
+from dataclasses import dataclass
 import logging
 from typing import Any
 
@@ -19,12 +20,21 @@ from homeassistant.components.lovelace.resources import (
 )
 from homeassistant.components.persistent_notification import async_create
 from homeassistant.config_entries import SOURCE_IMPORT, SOURCE_REAUTH, ConfigEntry
-from homeassistant.const import CONF_ICON, CONF_ID, CONF_NAME, CONF_URL, Platform
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_ICON,
+    CONF_ID,
+    CONF_NAME,
+    CONF_URL,
+    Platform,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
+from .client import ScryptedClient, ScryptedConnectionError, get_base_url
 from .const import (
     CONF_AUTO_REGISTER_RESOURCES,
     CONF_ENABLE_ENTITIES,
@@ -33,8 +43,20 @@ from .const import (
 )
 from .http import ScryptedView, retrieve_token
 
+
+@dataclass
+class ScryptedRuntimeData:
+    """Objects for this config entry's lifetime."""
+
+    token: str
+    client: ScryptedClient | None
+
+
 PLATFORMS = [
-    Platform.SENSOR
+    Platform.BINARY_SENSOR,
+    Platform.CAMERA,
+    Platform.EVENT,
+    Platform.SENSOR,
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -256,6 +278,29 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         config_entry.add_update_listener(_async_update_listener)
     )
 
+    client: ScryptedClient | None = None
+    if config_entry.options.get(CONF_ENABLE_ENTITIES, True):
+        client = ScryptedClient(hass, config_entry)
+        try:
+            await client.async_connect()
+        except ScryptedConnectionError as err:
+            # Token retrieval succeeded so the server is up; engine.io failing
+            # is unexpected — retry the whole entry setup.
+            raise ConfigEntryNotReady(
+                f"Scrypted engine.io connect failed: {err}"
+            ) from err
+
+        device_registry = dr.async_get(hass)
+        device_registry.async_get_or_create(
+            config_entry_id=config_entry.entry_id,
+            identifiers={(DOMAIN, config_entry.entry_id)},
+            manufacturer="Scrypted",
+            name=config_entry.data[CONF_NAME],
+            configuration_url=get_base_url(config_entry.data[CONF_HOST]),
+        )
+
+    config_entry.runtime_data = ScryptedRuntimeData(token=token, client=client)
+
     if config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES):
         await _async_register_lovelace_resource(hass, token, config_entry.entry_id)
 
@@ -289,6 +334,15 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        config_entry, PLATFORMS
+    )
+    if not unload_ok:
+        return False
+
+    if (data := getattr(config_entry, "runtime_data", None)) and data.client:
+        await data.client.async_disconnect()
+
     token = next(
         token
         for token, entry in hass.data[DOMAIN].items()
