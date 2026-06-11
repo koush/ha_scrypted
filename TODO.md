@@ -31,3 +31,16 @@
 7. Move panel configuration into the options flow
    - The credentials reauth step currently collects the panel name/icon alongside passwords; move those UI fields into the options flow so credential updates only prompt for authentication details.
    - Once the options flow exposes these fields, remove them from the credentials step to reduce user confusion.
+
+## Device entities follow-ups
+
+- Replace vendored SDK symlinks with the published scrypted client package in
+  manifest.json requirements once it ships.
+- Device removal: entities for deleted scrypted devices currently linger as
+  unavailable until the entry is reloaded.
+- PTZ support (`PanTiltZoom` interface) on cameras.
+- Lock / switch / light platforms for controllable scrypted devices.
+- WebRTC streaming (`RTCSignalingChannel`) instead of RTSP rewrite.
+- Upstream the python-client fixes found during development: test.py uses
+  writeJSON (rpc_reader now calls writeSerialized) and passes the peer where
+  PluginRemote now expects a ClusterSetup.
