@@ -171,7 +171,7 @@ async def async_setup_entry(
         for description in SENSORS:
             if (device_id, description.key) in known:
                 continue
-            if not device_matches(client.sdk, device_id, description.interface):
+            if not device_matches(client, device_id, description.interface):
                 continue
             known.add((device_id, description.key))
             entities.append(

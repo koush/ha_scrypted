@@ -244,6 +244,7 @@ async def test_async_setup_entry_registers_resources_and_panel(hass, monkeypatch
             CONF_AUTO_REGISTER_RESOURCES: True,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -278,6 +279,7 @@ async def test_async_setup_entry_moves_auto_register_flag(hass, monkeypatch):
             CONF_AUTO_REGISTER_RESOURCES: True,
             CONF_SCRYPTED_NVR: True,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -324,6 +326,7 @@ async def test_update_listener_moves_option_keys(hass, monkeypatch):
             CONF_AUTO_REGISTER_RESOURCES: True,
             CONF_SCRYPTED_NVR: True,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
         options={},
     )
@@ -353,6 +356,7 @@ async def test_ensure_entry_options_no_changes(hass, monkeypatch):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -399,6 +403,7 @@ async def test_async_setup_entry_handles_missing_token(hass, monkeypatch):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -430,6 +435,7 @@ async def test_async_setup_entry_client_connector_error(hass, monkeypatch):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -457,6 +463,7 @@ async def test_async_setup_entry_other_exception_propagates(hass, monkeypatch):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -510,6 +517,7 @@ async def test_panel_registered_with_token(hass, monkeypatch):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -571,6 +579,7 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -628,6 +637,7 @@ async def test_setup_entry_creates_client_and_unloads(hass, enable_custom_integr
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: True,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -658,6 +668,7 @@ async def test_setup_entry_entities_disabled(hass, enable_custom_integrations):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -677,6 +688,7 @@ async def test_setup_entry_auth_error_starts_reauth(hass, monkeypatch):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -719,6 +731,7 @@ async def test_setup_entry_not_ready_on_engineio_failure(
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: True,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)

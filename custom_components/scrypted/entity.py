@@ -13,8 +13,9 @@ from homeassistant.helpers.entity import Entity
 
 from .client import ScryptedClient
 from .const import (
+    CONF_DEVICE_TYPES,
+    DEFAULT_DEVICE_TYPES,
     DOMAIN,
-    EXCLUDED_DEVICE_TYPES,
     SIGNAL_CONNECTION,
     SIGNAL_DEVICE_UPDATE,
 )
@@ -35,12 +36,17 @@ class ScryptedEntityDescriptionMixin:
     value_fn: Callable[[Any], Any] = lambda value: value
 
 
-def device_matches(sdk, device_id: str, interface: str) -> bool:
-    """Return True if the device should produce an entity for interface."""
-    device = sdk.systemManager.getDeviceById(device_id)
+def device_matches(client: ScryptedClient, device_id: str, interface: str) -> bool:
+    """Return True if the device should produce an entity for interface.
+
+    Only devices whose scrypted type is in the configured allowlist
+    (default: cameras and doorbells) are mirrored as entities.
+    """
+    device = client.sdk.systemManager.getDeviceById(device_id)
     if device is None:
         return False
-    if (device.type or "Unknown") in EXCLUDED_DEVICE_TYPES:
+    allowed_types = client.entry.options.get(CONF_DEVICE_TYPES, DEFAULT_DEVICE_TYPES)
+    if (device.type or "Unknown") not in allowed_types:
         return False
     return interface in (device.interfaces or [])
 

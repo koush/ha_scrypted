@@ -10,7 +10,9 @@ Visit the [Scrypted Documentation](https://docs.scrypted.app/home-assistant.html
 
 When *Create entities for Scrypted devices* is enabled (default), the
 integration connects to the Scrypted server over its engine.io RPC API and
-creates entities for discovered devices:
+creates entities for discovered devices. By default only **Camera** and
+**Doorbell** device types are mirrored; pick additional Scrypted device types
+(sensors, locks, etc.) in the integration options:
 
 - **Camera** — snapshots and live streams for `VideoCamera` devices. Cameras
   exposing `RTCSignalingChannel` (anything managed by the Scrypted WebRTC

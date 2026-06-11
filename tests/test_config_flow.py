@@ -241,10 +241,11 @@ async def test_options_flow_respects_existing_options(hass):
     entry.add_to_hass(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
     schema_keys = list(result["data_schema"].schema.keys())
-    auto_field, nvr_field, entities_field = schema_keys
+    auto_field, nvr_field, entities_field, types_field = schema_keys
     assert auto_field.default() is False
     assert nvr_field.default() is False
     assert entities_field.default() is True
+    assert types_field.default() == ["Camera", "Doorbell"]
 
 
 @pytest.mark.asyncio
@@ -328,6 +329,7 @@ async def test_options_flow_includes_enable_entities(hass):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     assert result["type"] == "create_entry"

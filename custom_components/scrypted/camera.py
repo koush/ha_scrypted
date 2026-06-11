@@ -49,7 +49,7 @@ async def async_setup_entry(
         if device_id in known:
             return
         if not device_matches(
-            client.sdk, device_id, ScryptedInterface.VideoCamera.value
+            client, device_id, ScryptedInterface.VideoCamera.value
         ):
             return
         known.add(device_id)

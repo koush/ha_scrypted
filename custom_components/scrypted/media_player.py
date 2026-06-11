@@ -50,7 +50,7 @@ async def async_setup_entry(
     def _add_for_device(device_id: str) -> None:
         if device_id in known:
             return
-        if not device_matches(client.sdk, device_id, ScryptedInterface.Intercom.value):
+        if not device_matches(client, device_id, ScryptedInterface.Intercom.value):
             return
         known.add(device_id)
         async_add_entities(

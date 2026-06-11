@@ -37,8 +37,10 @@ from homeassistant.helpers.typing import ConfigType
 from .client import ScryptedClient, ScryptedConnectionError, get_base_url
 from .const import (
     CONF_AUTO_REGISTER_RESOURCES,
+    CONF_DEVICE_TYPES,
     CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
+    DEFAULT_DEVICE_TYPES,
     DOMAIN,
 )
 from .http import ScryptedView, retrieve_token
@@ -66,6 +68,7 @@ _OPTION_DEFAULTS = {
     CONF_AUTO_REGISTER_RESOURCES: False,
     CONF_SCRYPTED_NVR: False,
     CONF_ENABLE_ENTITIES: True,
+    CONF_DEVICE_TYPES: DEFAULT_DEVICE_TYPES,
 }
 
 

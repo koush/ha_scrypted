@@ -1,19 +1,35 @@
 """Tests for discovery helpers."""
+from types import SimpleNamespace
+
 from custom_components.scrypted.entity import device_matches
 
 
+def make_client(fake_sdk, device_types=None):
+    options = {}
+    if device_types is not None:
+        options["device_types"] = device_types
+    return SimpleNamespace(sdk=fake_sdk, entry=SimpleNamespace(options=options))
+
+
 def test_device_matches_interface(fake_sdk):
-    assert device_matches(fake_sdk, "cam1", "MotionSensor")
-    assert not device_matches(fake_sdk, "leak1", "MotionSensor")
+    client = make_client(fake_sdk)
+    assert device_matches(client, "cam1", "MotionSensor")
+    assert not device_matches(client, "cam1", "FloodSensor")
 
 
 def test_device_matches_missing_device(fake_sdk):
-    assert not device_matches(fake_sdk, "nope", "MotionSensor")
+    assert not device_matches(make_client(fake_sdk), "nope", "MotionSensor")
 
 
-def test_excluded_types_never_match(fake_sdk):
-    # plugin1 has Online but is type API (excluded plumbing)
-    assert not device_matches(fake_sdk, "plugin1", "Online")
+def test_default_allowlist_is_cameras_and_doorbells(fake_sdk):
+    client = make_client(fake_sdk)
+    # leak1 is type Sensor: excluded by default, included when selected
+    assert not device_matches(client, "leak1", "FloodSensor")
+    assert device_matches(
+        make_client(fake_sdk, ["Camera", "Doorbell", "Sensor"]), "leak1", "FloodSensor"
+    )
+    # plugin1 is type API (plumbing, never offered in the selector)
+    assert not device_matches(client, "plugin1", "Online")
 
 
 def test_entity_handles_missing_device_and_values(fake_sdk):

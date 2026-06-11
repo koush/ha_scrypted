@@ -50,9 +50,7 @@ async def async_setup_entry(
         if device is None:
             return
         if (
-            device_matches(
-                client.sdk, device_id, ScryptedInterface.ObjectDetector.value
-            )
+            device_matches(client, device_id, ScryptedInterface.ObjectDetector.value)
             and (device_id, OBJECT_DETECTED.key) not in known
         ):
             known.add((device_id, OBJECT_DETECTED.key))
@@ -64,7 +62,7 @@ async def async_setup_entry(
         if (
             device.type == "Doorbell"
             and device_matches(
-                client.sdk, device_id, ScryptedInterface.BinarySensor.value
+                client, device_id, ScryptedInterface.BinarySensor.value
             )
             and (device_id, DOORBELL.key) not in known
         ):

@@ -26,3 +26,7 @@ EXCLUDED_DEVICE_TYPES = {
     "Program",
     "Scene",
 }
+
+# Device-type allowlist option: which scrypted device types produce entities.
+CONF_DEVICE_TYPES = "device_types"
+DEFAULT_DEVICE_TYPES = ["Camera", "Doorbell"]
