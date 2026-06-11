@@ -32,7 +32,7 @@ from .sdk_compat import ScryptedInterface
 
 _LOGGER = logging.getLogger(__name__)
 
-INTERCOM_DESCRIPTION = EntityDescription(key="intercom", name="Intercom")
+SPEAKER_DESCRIPTION = EntityDescription(key="speaker", name="Speaker")
 
 
 async def async_setup_entry(
@@ -54,7 +54,7 @@ async def async_setup_entry(
             return
         known.add(device_id)
         async_add_entities(
-            [ScryptedIntercom(client, config_entry, device_id, INTERCOM_DESCRIPTION)]
+            [ScryptedIntercom(client, config_entry, device_id, SPEAKER_DESCRIPTION)]
         )
 
     for device_id in client.device_ids:
