@@ -749,3 +749,47 @@ async def test_unload_entry_fails_when_platforms_fail(hass, monkeypatch):
         AsyncMock(return_value=False),
     )
     assert await scrypted.async_unload_entry(hass, entry) is False
+
+
+async def test_remove_config_entry_device(hass, fake_sdk, enable_custom_integrations):
+    """Devices are only removable once scrypted stops exposing them."""
+    from homeassistant.helpers import device_registry as dr
+
+    from tests.test_binary_sensor import setup_entry
+
+    entry = await setup_entry(hass)
+    device_registry = dr.async_get(hass)
+    hub = device_registry.async_get_device({(DOMAIN, entry.entry_id)})
+    cam = device_registry.async_get_device({(DOMAIN, f"{entry.entry_id}_cam1")})
+    leak = device_registry.async_get_device({(DOMAIN, f"{entry.entry_id}_leak1")})
+    assert hub and cam and leak
+
+    # hub and still-exposed devices are not removable
+    assert not await scrypted.async_remove_config_entry_device(hass, entry, hub)
+    assert not await scrypted.async_remove_config_entry_device(hass, entry, cam)
+
+    # device gone from scrypted -> removable
+    fake_sdk.systemManager.systemState.pop("cam1")
+    assert await scrypted.async_remove_config_entry_device(hass, entry, cam)
+
+    # device still in scrypted but type no longer in the allowlist -> removable
+    fake_sdk.systemManager.systemState["leak1"]["type"]["value"] = "Vacuum"
+    assert await scrypted.async_remove_config_entry_device(hass, entry, leak)
+
+
+async def test_remove_config_entry_device_entities_disabled(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """With entities disabled, any leftover device is removable."""
+    from types import SimpleNamespace as NS
+
+    from homeassistant.helpers import device_registry as dr
+
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "x"})
+    entry.add_to_hass(hass)
+    entry.runtime_data = NS(client=None)
+    device_entry = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, f"{entry.entry_id}_ghost")},
+    )
+    assert await scrypted.async_remove_config_entry_device(hass, entry, device_entry)

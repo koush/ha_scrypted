@@ -334,6 +334,37 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     return True
 
 
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, config_entry: ConfigEntry, device_entry: dr.DeviceEntry
+) -> bool:
+    """Allow removing a device from the UI once scrypted stops exposing it.
+
+    The hub device and any device that would still produce entities (present
+    in the scrypted system state with an allowlisted type) stay protected.
+    """
+    client = config_entry.runtime_data.client
+    prefix = f"{config_entry.entry_id}_"
+    allowed_types = config_entry.options.get(CONF_DEVICE_TYPES, DEFAULT_DEVICE_TYPES)
+
+    for domain, identifier in device_entry.identifiers:
+        if domain != DOMAIN:
+            continue
+        if identifier == config_entry.entry_id:
+            # The hub device representing the scrypted server itself.
+            return False
+        if not identifier.startswith(prefix):
+            continue
+        device_id = identifier.removeprefix(prefix)
+        if client is None or client.sdk is None:
+            continue
+        device = client.sdk.systemManager.getDeviceById(device_id)
+        if device is not None and (device.type or "Unknown") in allowed_types:
+            # Still exposed by the integration; deleting it would only have
+            # it reappear on the next event or reload.
+            return False
+    return True
+
+
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(
