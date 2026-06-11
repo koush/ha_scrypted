@@ -18,6 +18,7 @@ from homeassistant.util import slugify
 
 from .const import (
     CONF_AUTO_REGISTER_RESOURCES,
+    CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
@@ -236,6 +237,7 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_AUTO_REGISTER_RESOURCES
                 ],
                 CONF_SCRYPTED_NVR: user_input[CONF_SCRYPTED_NVR],
+                CONF_ENABLE_ENTITIES: user_input[CONF_ENABLE_ENTITIES],
             }
             return self.async_create_entry(data=data)
 
@@ -253,6 +255,8 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_SCRYPTED_NVR, False
             )
 
+        current_entities = self.config_entry.options.get(CONF_ENABLE_ENTITIES, True)
+
         return self.async_show_form(
             step_id="general",
             data_schema=vol.Schema(
@@ -261,6 +265,7 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_AUTO_REGISTER_RESOURCES, default=current_auto
                     ): bool,
                     vol.Required(CONF_SCRYPTED_NVR, default=current_nvr): bool,
+                    vol.Required(CONF_ENABLE_ENTITIES, default=current_entities): bool,
                 }
             ),
         )

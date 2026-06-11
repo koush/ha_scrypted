@@ -25,7 +25,12 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_AUTO_REGISTER_RESOURCES, CONF_SCRYPTED_NVR, DOMAIN
+from .const import (
+    CONF_AUTO_REGISTER_RESOURCES,
+    CONF_ENABLE_ENTITIES,
+    CONF_SCRYPTED_NVR,
+    DOMAIN,
+)
 from .http import ScryptedView, retrieve_token
 
 PLATFORMS = [
@@ -37,6 +42,7 @@ _RESOURCE_TRACKER = f"{DOMAIN}_lovelace_resources"
 _OPTION_DEFAULTS = {
     CONF_AUTO_REGISTER_RESOURCES: False,
     CONF_SCRYPTED_NVR: False,
+    CONF_ENABLE_ENTITIES: True,
 }
 
 

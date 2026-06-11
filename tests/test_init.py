@@ -26,6 +26,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 import custom_components.scrypted as scrypted
 from custom_components.scrypted.const import (
     CONF_AUTO_REGISTER_RESOURCES,
+    CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
@@ -242,6 +243,7 @@ async def test_async_setup_entry_registers_resources_and_panel(hass, monkeypatch
         options={
             CONF_AUTO_REGISTER_RESOURCES: True,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
         },
     )
     entry.add_to_hass(hass)
@@ -275,6 +277,7 @@ async def test_async_setup_entry_moves_auto_register_flag(hass, monkeypatch):
             CONF_USERNAME: "user",
             CONF_AUTO_REGISTER_RESOURCES: True,
             CONF_SCRYPTED_NVR: True,
+            CONF_ENABLE_ENTITIES: False,
         },
     )
     entry.add_to_hass(hass)
@@ -320,6 +323,7 @@ async def test_update_listener_moves_option_keys(hass, monkeypatch):
             CONF_USERNAME: "user",
             CONF_AUTO_REGISTER_RESOURCES: True,
             CONF_SCRYPTED_NVR: True,
+            CONF_ENABLE_ENTITIES: False,
         },
         options={},
     )
@@ -348,6 +352,7 @@ async def test_ensure_entry_options_no_changes(hass, monkeypatch):
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
         },
     )
     entry.add_to_hass(hass)
@@ -393,6 +398,7 @@ async def test_async_setup_entry_handles_missing_token(hass, monkeypatch):
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
         },
     )
     entry.add_to_hass(hass)
@@ -423,6 +429,7 @@ async def test_async_setup_entry_client_connector_error(hass, monkeypatch):
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
         },
     )
     entry.add_to_hass(hass)
@@ -449,6 +456,7 @@ async def test_async_setup_entry_other_exception_propagates(hass, monkeypatch):
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
         },
     )
     entry.add_to_hass(hass)
@@ -501,6 +509,7 @@ async def test_panel_registered_with_token(hass, monkeypatch):
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
         },
     )
     entry.add_to_hass(hass)
@@ -561,6 +570,7 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
         },
     )
     entry.add_to_hass(hass)
