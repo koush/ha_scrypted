@@ -65,3 +65,44 @@ async def test_unknown_device_dispatches_new_device(hass, entry, fake_sdk):
     await hass.async_block_till_done()
     assert new == ["new1"]
     await client.async_disconnect()
+
+
+async def test_disconnect_triggers_reconnect(
+    hass, entry, fake_sdk, mock_connect_sdk, monkeypatch
+):
+    """A dropped connection reconnects with backoff after a failed attempt."""
+    import asyncio
+
+    from custom_components.scrypted import client as client_module
+
+    monkeypatch.setattr(client_module, "RECONNECT_INITIAL_DELAY", 0)
+    client = ScryptedClient(hass, entry)
+    await client.async_connect()
+
+    flaky_state = {"calls": 0}
+    real_connect = client_module.async_connect_sdk
+
+    async def flaky(*args, **kwargs):
+        flaky_state["calls"] += 1
+        if flaky_state["calls"] == 1:
+            raise client_module.ScryptedConnectionError("boom")
+        return await real_connect(*args, **kwargs)
+
+    monkeypatch.setattr(client_module, "async_connect_sdk", flaky)
+
+    mock_connect_sdk.transport.handlers["disconnect"]()
+    assert client.connected is False
+
+    for _ in range(50):
+        if client.connected:
+            break
+        await asyncio.sleep(0)
+        await hass.async_block_till_done()
+    assert client.connected
+    assert flaky_state["calls"] == 2
+
+    await client.async_disconnect()
+    assert client.device_ids == []
+    # disconnect handler is a no-op once closing
+    mock_connect_sdk.transport.handlers["disconnect"]()
+    assert client.connected is False

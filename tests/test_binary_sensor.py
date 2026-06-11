@@ -86,3 +86,17 @@ async def test_offline_device_unavailable(hass, fake_sdk, enable_custom_integrat
     assert (
         hass.states.get("binary_sensor.front_door_cam_motion").state == "unavailable"
     )
+
+
+async def test_new_device_signal_dedup(hass, fake_sdk, enable_custom_integrations):
+    """Re-announcing a known or unknown device creates no duplicate entities."""
+    from homeassistant.helpers.dispatcher import async_dispatcher_send
+
+    from custom_components.scrypted.const import SIGNAL_NEW_DEVICE
+
+    entry = await setup_entry(hass)
+    before = len(hass.states.async_all())
+    async_dispatcher_send(hass, SIGNAL_NEW_DEVICE.format(entry.entry_id), "cam1")
+    async_dispatcher_send(hass, SIGNAL_NEW_DEVICE.format(entry.entry_id), "ghost")
+    await hass.async_block_till_done()
+    assert len(hass.states.async_all()) == before

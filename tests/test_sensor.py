@@ -61,3 +61,14 @@ async def test_sensor_updates_on_event(hass, fake_sdk, enable_custom_integration
     fake_sdk.systemManager.set_property("leak1", "temperature", 25.0)
     await hass.async_block_till_done()
     assert hass.states.get("sensor.basement_leak_temperature").state == "25.0"
+
+
+def test_sensor_native_value_none(fake_sdk):
+    from custom_components.scrypted.sensor import SENSORS, ScryptedSensor
+
+    client = SimpleNamespace(sdk=fake_sdk, connected=True)
+    entry = MockConfigEntry(domain=DOMAIN)
+    description = next(d for d in SENSORS if d.key == "temperature")
+    entity = ScryptedSensor(client, entry, "leak1", description)
+    fake_sdk.systemManager.systemState["leak1"].pop("temperature")
+    assert entity.native_value is None

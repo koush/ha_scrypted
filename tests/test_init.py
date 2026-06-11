@@ -664,3 +664,75 @@ async def test_setup_entry_entities_disabled(hass, enable_custom_integrations):
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.runtime_data.client is None
+
+
+async def test_setup_entry_auth_error_starts_reauth(hass, monkeypatch):
+    """HTTP 401 from token retrieval starts the reauth flow."""
+    from aiohttp import ClientResponseError
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_HOST: "example", CONF_USERNAME: "u"},
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    async def _raise(data, session):
+        raise ClientResponseError(
+            request_info=MagicMock(), history=(), status=401
+        )
+
+    monkeypatch.setattr(scrypted, "retrieve_token", _raise)
+    flow_init = AsyncMock()
+    monkeypatch.setattr(hass.config_entries.flow, "async_init", flow_init)
+    result = await scrypted.async_setup_entry(hass, entry)
+    await hass.async_block_till_done()
+    assert result is False
+    flow_init.assert_awaited()
+
+
+async def test_setup_entry_not_ready_on_engineio_failure(
+    hass, monkeypatch, enable_custom_integrations
+):
+    """engine.io connect failure raises ConfigEntryNotReady (setup retry)."""
+    from homeassistant.config_entries import ConfigEntryState
+
+    from custom_components.scrypted.client import ScryptedConnectionError
+
+    async def _fail(self):
+        raise ScryptedConnectionError("nope")
+
+    monkeypatch.setattr(scrypted.ScryptedClient, "async_connect", _fail)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "1.2.3.4",
+            CONF_USERNAME: "u",
+            CONF_NAME: "Scrypted",
+            CONF_ICON: "mdi:memory",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: True,
+        },
+    )
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_unload_entry_fails_when_platforms_fail(hass, monkeypatch):
+    """Unload aborts when platform unload fails."""
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
+    entry.add_to_hass(hass)
+    monkeypatch.setattr(
+        hass.config_entries,
+        "async_unload_platforms",
+        AsyncMock(return_value=False),
+    )
+    assert await scrypted.async_unload_entry(hass, entry) is False
