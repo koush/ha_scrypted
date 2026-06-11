@@ -59,7 +59,7 @@ class EioRpcTransport(rpc_reader.RpcTransport):
         # own it.
         self._http_session = http_session
         self.eio = engineio.AsyncClient(
-            http_session=http_session, ssl_verify=http_session is None
+            http_session=http_session, ssl_verify=http_session is not None
         )
         self.loop = loop
         self.write_error: Exception | None = None
