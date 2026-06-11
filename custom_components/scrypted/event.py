@@ -175,10 +175,10 @@ class ScryptedObjectDetectionEvent(ScryptedDeviceEntity, EventEntity):
 class ScryptedDoorbellEvent(ScryptedDeviceEntity, EventEntity):
     """Fires on doorbell button presses (binaryState rising edge)."""
 
-    _attr_event_types = ["pressed"]
+    _attr_event_types = ["ring"]
 
     @callback
     def _handle_device_update(self, event_details: dict, value: Any) -> None:
         if event_details.get("property") == "binaryState" and value:
-            self._trigger_event("pressed")
+            self._trigger_event("ring")
         self.async_write_ha_state()

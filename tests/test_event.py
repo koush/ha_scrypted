@@ -49,7 +49,7 @@ async def test_doorbell_press_event(hass, fake_sdk, enable_custom_integrations):
     fake_sdk.systemManager.set_property("bell1", "binaryState", True)
     await hass.async_block_till_done()
     state = hass.states.get("event.doorbell_doorbell")
-    assert state.attributes["event_type"] == "pressed"
+    assert state.attributes["event_type"] == "ring"
 
     # Releasing must not fire another event
     last_changed = state.last_changed

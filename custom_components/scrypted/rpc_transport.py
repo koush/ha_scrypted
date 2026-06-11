@@ -13,7 +13,10 @@ import aiohttp
 import engineio
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import (
+    async_create_clientsession,
+    async_get_clientsession,
+)
 
 from .sdk_compat import ScryptedStatic, plugin_remote, rpc_reader
 
@@ -40,9 +43,17 @@ def get_base_url(host: str) -> str:
 class EioRpcTransport(rpc_reader.RpcTransport):
     """RpcTransport over an engine.io connection."""
 
-    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        http_session: aiohttp.ClientSession | None = None,
+    ) -> None:
         super().__init__()
-        self.eio = engineio.AsyncClient(ssl_verify=False)
+        # Passing a session built by HA avoids engineio creating its own SSL
+        # context inside the event loop (a blocking call HA warns about).
+        # engineio never closes externally provided sessions, so we own it.
+        self._http_session = http_session
+        self.eio = engineio.AsyncClient(http_session=http_session, ssl_verify=False)
         self.loop = loop
         self.write_error: Exception | None = None
         self.read_queue: asyncio.Queue = asyncio.Queue()
@@ -88,6 +99,9 @@ class EioRpcTransport(rpc_reader.RpcTransport):
             await self.eio.disconnect()
         except Exception:  # noqa: BLE001 - best effort teardown
             _LOGGER.debug("Error disconnecting engine.io client", exc_info=True)
+        if self._http_session:
+            await self._http_session.close()
+            self._http_session = None
 
 
 async def async_connect_sdk(
@@ -118,7 +132,9 @@ async def async_connect_sdk(
         )
 
     loop = hass.loop
-    transport = EioRpcTransport(loop)
+    transport = EioRpcTransport(
+        loop, http_session=async_create_clientsession(hass, verify_ssl=False)
+    )
     try:
         await transport.eio.connect(
             base_url,

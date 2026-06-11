@@ -27,6 +27,9 @@ async def main():
     hass.loop = asyncio.get_running_loop()
     session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False))
     rpc_transport.async_get_clientsession = lambda *_, **__: session
+    rpc_transport.async_create_clientsession = lambda *_, **__: aiohttp.ClientSession(
+        connector=aiohttp.TCPConnector(ssl=False)
+    )
 
     transport, sdk = await rpc_transport.async_connect_sdk(
         hass,
