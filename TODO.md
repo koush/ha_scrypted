@@ -43,7 +43,10 @@
 - Upstream the python-client fixes found during development: test.py uses
   writeJSON (rpc_reader now calls writeSerialized) and passes the peer where
   PluginRemote now expects a ClusterSetup.
-- WebRTC: surface scrypted's TURN/ICE servers to the HA frontend via
-  _async_get_webrtc_client_configuration (currently HA defaults; remote
-  clients behind symmetric NAT may need TURN).
-- WebRTC two-way audio (Intercom interface) over the same signaling session.
+- WebRTC ICE config: first session per camera uses HA's default ICE servers
+  (scrypted's TURN servers are only learned during negotiation and cached for
+  subsequent sessions). A proactive fetch would need a scrypted API exposing
+  getRTCConfiguration.
+- Browser-microphone two-way audio is blocked upstream: HA's frontend WebRTC
+  player negotiates recvonly audio. Revisit if the frontend adds mic support;
+  the scrypted side already answers sendrecv for Intercom devices.

@@ -279,3 +279,56 @@ async def test_signaling_session_guards():
     session.control = control
     await session.async_end()
     assert session.control is None
+
+
+async def test_webrtc_ice_servers_cached_from_session(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """ICE servers seen during negotiation are served to later sessions."""
+    from unittest.mock import AsyncMock
+
+    from homeassistant.components.camera import get_camera_from_entity_id
+
+    fake_sdk.systemManager.systemState["cam1"]["interfaces"]["value"].append(
+        "RTCSignalingChannel"
+    )
+    device = fake_sdk.systemManager.getDeviceById("cam1")
+    setup = {
+        "configuration": {
+            "iceServers": [
+                {
+                    "urls": ["turn:turn.scrypted.app:3478"],
+                    "username": "user",
+                    "credential": "pass",
+                },
+                {"urls": "stun:stun.scrypted.app:3478"},
+            ]
+        }
+    }
+
+    async def start(session):
+        await session.createLocalDescription("offer", setup, None)
+        await session.setRemoteDescription(
+            {"type": "answer", "sdp": "answer-sdp"}, setup
+        )
+        return AsyncMock()
+
+    object.__setattr__(
+        device, "startRTCSignalingSession", AsyncMock(side_effect=start)
+    )
+    await setup_entry(hass)
+    cam = get_camera_from_entity_id(hass, "camera.front_door_cam")
+
+    # before any session: HA defaults (no scrypted servers)
+    assert not cam._async_get_webrtc_client_configuration().configuration.ice_servers
+
+    await cam.async_handle_async_webrtc_offer("ha-offer-sdp", "sess1", lambda m: None)
+    await hass.async_block_till_done()
+
+    servers = cam._async_get_webrtc_client_configuration().configuration.ice_servers
+    assert [s.urls for s in servers] == [
+        ["turn:turn.scrypted.app:3478"],
+        "stun:stun.scrypted.app:3478",
+    ]
+    assert servers[0].username == "user"
+    assert servers[0].credential == "pass"

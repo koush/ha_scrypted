@@ -5,11 +5,12 @@ import logging
 
 from yarl import URL
 
-from webrtc_models import RTCIceCandidateInit
+from webrtc_models import RTCIceCandidateInit, RTCIceServer
 
 from homeassistant.components.camera import (
     Camera,
     CameraEntityFeature,
+    WebRTCClientConfiguration,
     WebRTCError,
     WebRTCSendMessage,
 )
@@ -169,6 +170,34 @@ class ScryptedWebRTCCamera(ScryptedCamera):
     def __init__(self, *args) -> None:
         super().__init__(*args)
         self._webrtc_sessions: dict[str, HomeAssistantSignalingSession] = {}
+        self._cached_ice_servers: list[RTCIceServer] | None = None
+
+    def _async_get_webrtc_client_configuration(self) -> WebRTCClientConfiguration:
+        """Give the frontend the ICE servers scrypted negotiates with.
+
+        Scrypted only reveals its RTCConfiguration (including TURN servers and
+        credentials) inside a signaling session, after the frontend has already
+        built its peer connection — so serve servers captured from previous
+        sessions. The first session falls back to HA's defaults.
+        """
+        config = WebRTCClientConfiguration()
+        if self._cached_ice_servers:
+            config.configuration.ice_servers = self._cached_ice_servers
+        return config
+
+    @callback
+    def _store_ice_configuration(self, setup: dict) -> None:
+        servers = [
+            RTCIceServer(
+                urls=server["urls"],
+                username=server.get("username"),
+                credential=server.get("credential"),
+            )
+            for server in (setup.get("configuration") or {}).get("iceServers") or []
+            if server.get("urls")
+        ]
+        if servers:
+            self._cached_ice_servers = servers
 
     async def async_handle_async_webrtc_offer(
         self, offer_sdp: str, session_id: str, send_message: WebRTCSendMessage
@@ -180,7 +209,9 @@ class ScryptedWebRTCCamera(ScryptedCamera):
                 WebRTCError("scrypted_webrtc", "Scrypted device is unavailable")
             )
             return
-        session = HomeAssistantSignalingSession(offer_sdp, send_message)
+        session = HomeAssistantSignalingSession(
+            offer_sdp, send_message, on_setup=self._store_ice_configuration
+        )
         self._webrtc_sessions[session_id] = session
         try:
             session.control = await device.startRTCSignalingSession(session)

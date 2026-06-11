@@ -31,15 +31,25 @@ _LOGGER = logging.getLogger(__name__)
 class HomeAssistantSignalingSession:
     """A scrypted RTCSignalingSession backed by a HA WebRTC client session."""
 
-    def __init__(self, offer_sdp: str, send_message: WebRTCSendMessage) -> None:
+    def __init__(
+        self,
+        offer_sdp: str,
+        send_message: WebRTCSendMessage,
+        on_setup: Any = None,
+    ) -> None:
         self.offer_sdp = offer_sdp
         self.send_message = send_message
+        self.on_setup = on_setup
         self.control: Any = None
         self._send_ice_candidate: Any = None
         self._pending_client_candidates: list[dict[str, Any]] = []
         self.options: dict[str, Any] = {"userAgent": "home-assistant"}
         # rpc.py ships these to the remote peer as readable proxy properties.
         self.__dict__["__proxy_props"] = {"options": self.options}
+
+    def _record_setup(self, setup: dict | None) -> None:
+        if self.on_setup and setup:
+            self.on_setup(setup)
 
     # -- RTCSignalingSession interface (called by the scrypted camera) --
 
@@ -54,6 +64,7 @@ class HomeAssistantSignalingSession:
                 "Home Assistant always provides the offer; the scrypted peer "
                 f"asked for a local {type}"
             )
+        self._record_setup(setup)
         self._send_ice_candidate = sendIceCandidate
         if sendIceCandidate:
             while self._pending_client_candidates:
@@ -63,6 +74,7 @@ class HomeAssistantSignalingSession:
     async def setRemoteDescription(  # noqa: N802 - scrypted API
         self, description: dict, setup: dict
     ) -> None:
+        self._record_setup(setup)
         if (description or {}).get("type") == "answer":
             self.send_message(WebRTCAnswer(answer=description["sdp"]))
 

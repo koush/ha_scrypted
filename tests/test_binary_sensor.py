@@ -97,6 +97,7 @@ async def test_new_device_signal_dedup(hass, fake_sdk, enable_custom_integration
     entry = await setup_entry(hass)
     before = len(hass.states.async_all())
     async_dispatcher_send(hass, SIGNAL_NEW_DEVICE.format(entry.entry_id), "cam1")
+    async_dispatcher_send(hass, SIGNAL_NEW_DEVICE.format(entry.entry_id), "bell1")
     async_dispatcher_send(hass, SIGNAL_NEW_DEVICE.format(entry.entry_id), "ghost")
     await hass.async_block_till_done()
     assert len(hass.states.async_all()) == before

@@ -65,6 +65,8 @@ class FakeDevice:
             "getObjectTypes",
             AsyncMock(return_value={"classes": ["person", "car"]}),
         )
+        object.__setattr__(self, "startIntercom", AsyncMock())
+        object.__setattr__(self, "stopIntercom", AsyncMock())
 
     def __getattr__(self, name):
         device_state = self._manager.systemState.get(self.id) or {}
@@ -149,6 +151,7 @@ class FakeSDK:
             convertMediaObjectToJSON=AsyncMock(
                 return_value={"url": "rtsp://localhost:34567/stream"}
             ),
+            createMediaObjectFromUrl=AsyncMock(return_value=object()),
         )
 
 
@@ -197,7 +200,7 @@ DEFAULT_SYSTEM_STATE = {
         type="Doorbell",
         room=None,
         info={},
-        interfaces=["VideoCamera", "BinarySensor", "MotionSensor", "Online"],
+        interfaces=["VideoCamera", "BinarySensor", "MotionSensor", "Intercom", "Online"],
         binaryState=False,
         motionDetected=False,
         online=True,
