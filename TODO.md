@@ -40,7 +40,10 @@
   unavailable until the entry is reloaded.
 - PTZ support (`PanTiltZoom` interface) on cameras.
 - Lock / switch / light platforms for controllable scrypted devices.
-- WebRTC streaming (`RTCSignalingChannel`) instead of RTSP rewrite.
 - Upstream the python-client fixes found during development: test.py uses
   writeJSON (rpc_reader now calls writeSerialized) and passes the peer where
   PluginRemote now expects a ClusterSetup.
+- WebRTC: surface scrypted's TURN/ICE servers to the HA frontend via
+  _async_get_webrtc_client_configuration (currently HA defaults; remote
+  clients behind symmetric NAT may need TURN).
+- WebRTC two-way audio (Intercom interface) over the same signaling session.

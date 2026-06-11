@@ -5,7 +5,14 @@ import logging
 
 from yarl import URL
 
-from homeassistant.components.camera import Camera, CameraEntityFeature
+from webrtc_models import RTCIceCandidateInit
+
+from homeassistant.components.camera import (
+    Camera,
+    CameraEntityFeature,
+    WebRTCError,
+    WebRTCSendMessage,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -16,6 +23,7 @@ from .client import ScryptedClient
 from .const import SIGNAL_NEW_DEVICE
 from .entity import ScryptedDeviceEntity, device_matches
 from .sdk_compat import ScryptedInterface, ScryptedMimeTypes
+from .webrtc import HomeAssistantSignalingSession
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,8 +52,14 @@ async def async_setup_entry(
         ):
             return
         known.add(device_id)
+        device = client.sdk.systemManager.getDeviceById(device_id)
+        camera_cls = (
+            ScryptedWebRTCCamera
+            if ScryptedInterface.RTCSignalingChannel.value in (device.interfaces or [])
+            else ScryptedCamera
+        )
         async_add_entities(
-            [ScryptedCamera(client, config_entry, device_id, CAMERA_DESCRIPTION)]
+            [camera_cls(client, config_entry, device_id, CAMERA_DESCRIPTION)]
         )
 
     for device_id in client.device_ids:
@@ -142,3 +156,54 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
             host_ip = self.client.host.split(":")[0]
             return str(parsed.with_host(host_ip))
         return url
+
+
+class ScryptedWebRTCCamera(ScryptedCamera):
+    """A scrypted camera streamed natively over WebRTC.
+
+    Overriding async_handle_async_webrtc_offer marks this class as a native
+    WebRTC camera to Home Assistant, so it is only used for devices that
+    implement RTCSignalingChannel; other cameras keep the RTSP path.
+    """
+
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self._webrtc_sessions: dict[str, HomeAssistantSignalingSession] = {}
+
+    async def async_handle_async_webrtc_offer(
+        self, offer_sdp: str, session_id: str, send_message: WebRTCSendMessage
+    ) -> None:
+        """Start a scrypted signaling session for a HA frontend offer."""
+        device = self.device
+        if device is None:
+            send_message(
+                WebRTCError("scrypted_webrtc", "Scrypted device is unavailable")
+            )
+            return
+        session = HomeAssistantSignalingSession(offer_sdp, send_message)
+        self._webrtc_sessions[session_id] = session
+        try:
+            session.control = await device.startRTCSignalingSession(session)
+        except Exception as err:  # noqa: BLE001 - surfaced to the frontend
+            self._webrtc_sessions.pop(session_id, None)
+            _LOGGER.exception("WebRTC negotiation failed for %s", self.entity_id)
+            send_message(WebRTCError("scrypted_webrtc", str(err)))
+
+    async def async_on_webrtc_candidate(
+        self, session_id: str, candidate: RTCIceCandidateInit
+    ) -> None:
+        """Forward a HA frontend ICE candidate to the scrypted peer."""
+        if session := self._webrtc_sessions.get(session_id):
+            await session.add_client_candidate(candidate)
+
+    @callback
+    def close_webrtc_session(self, session_id: str) -> None:
+        """Tear down the scrypted session when the frontend closes."""
+        if session := self._webrtc_sessions.pop(session_id, None):
+            self.hass.async_create_task(session.async_end())
+
+    async def async_will_remove_from_hass(self) -> None:
+        sessions = list(self._webrtc_sessions.values())
+        self._webrtc_sessions.clear()
+        for session in sessions:
+            await session.async_end()

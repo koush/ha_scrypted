@@ -12,8 +12,10 @@ When *Create entities for Scrypted devices* is enabled (default), the
 integration connects to the Scrypted server over its engine.io RPC API and
 creates entities for discovered devices:
 
-- **Camera** — snapshots and RTSP streams for `VideoCamera` devices. Streams
-  require the Scrypted rebroadcast plugin (bundled with most camera plugins).
+- **Camera** — snapshots and live streams for `VideoCamera` devices. Cameras
+  exposing `RTCSignalingChannel` (anything managed by the Scrypted WebRTC
+  plugin) stream natively over WebRTC end-to-end; others fall back to the
+  RTSP rebroadcast stream.
 - **Binary sensor** — motion, audio, occupancy, flood, entry, power,
   connectivity, tamper, charging.
 - **Sensor** — temperature, humidity, battery, illuminance, UV, CO2,
