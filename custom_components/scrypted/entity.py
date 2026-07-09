@@ -1,12 +1,14 @@
 """Base entity for Scrypted devices."""
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
@@ -19,6 +21,7 @@ from .const import (
     HA_PLUGIN_ID,
     SIGNAL_CONNECTION,
     SIGNAL_DEVICE_UPDATE,
+    SIGNAL_NEW_DEVICE,
 )
 from .sdk_compat import ScryptedInterface
 
@@ -52,6 +55,37 @@ def device_matches(client: ScryptedClient, device_id: str, interface: str) -> bo
     if (device.type or "Unknown") not in allowed_types:
         return False
     return interface in (device.interfaces or [])
+
+
+async def async_setup_scrypted_platform(hass, config_entry, async_add_entities, discover_fn):
+    """Shared platform setup: initial sweep + new-device discovery.
+
+    discover_fn(device_id) returns a list of entities (may be a coroutine).
+    Entities whose unique_id was already produced are dropped, so platforms
+    keep no bookkeeping.
+    """
+    client = config_entry.runtime_data.client
+    if client is None:
+        return
+    known: set[str] = set()
+
+    async def _discover(device_id: str) -> None:
+        result = discover_fn(device_id)
+        if inspect.isawaitable(result):
+            result = await result
+        entities = [e for e in (result or []) if e.unique_id not in known]
+        if entities:
+            known.update(e.unique_id for e in entities)
+            async_add_entities(entities)
+
+    for device_id in client.device_ids:
+        await _discover(device_id)
+
+    config_entry.async_on_unload(
+        async_dispatcher_connect(
+            hass, SIGNAL_NEW_DEVICE.format(config_entry.entry_id), _discover
+        )
+    )
 
 
 class ScryptedDeviceEntity(Entity):
@@ -140,3 +174,19 @@ class ScryptedDeviceEntity(Entity):
     @callback
     def _handle_connection_change(self, connected: bool) -> None:
         self.async_write_ha_state()
+
+    async def _async_device_command(self, method: str, *args):
+        """Invoke a DeviceProxy RPC, surfacing failures as service-call errors."""
+        device = self.device
+        if device is None:
+            raise HomeAssistantError(
+                f"Scrypted device {self.device_id} is unavailable"
+            )
+        try:
+            return await getattr(device, method)(*args)
+        except HomeAssistantError:
+            raise
+        except Exception as err:
+            raise HomeAssistantError(
+                f"{method} failed for {self.entity_id}: {err}"
+            ) from err
