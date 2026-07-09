@@ -272,7 +272,15 @@ DEFAULT_SYSTEM_STATE = {
         type="Fan",
         info={},
         interfaces=["Fan", "Online"],
-        fan={"speed": 2, "maxSpeed": 4, "mode": "Manual", "availableModes": ["Manual", "Auto"]},
+        fan={
+            "active": True,
+            "speed": 2,
+            "maxSpeed": 4,
+            "mode": "Manual",
+            "counterClockwise": False,
+            "swing": False,
+            "availableModes": ["Manual", "Auto"],
+        },
         online=True,
     ),
     "thermo1": state(

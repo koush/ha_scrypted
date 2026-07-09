@@ -3,6 +3,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.scrypted.const import (
     CONF_AUTO_REGISTER_RESOURCES,
+    CONF_DEVICE_TYPES,
     CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
     DOMAIN,
@@ -23,8 +24,7 @@ async def setup_entry(hass, device_types=None):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: True,
-            "device_types": device_types
-            or ["Camera", "Doorbell", "Sensor"],
+            CONF_DEVICE_TYPES: device_types or ["Camera", "Doorbell", "Sensor"],
         },
     )
     entry.add_to_hass(hass)
