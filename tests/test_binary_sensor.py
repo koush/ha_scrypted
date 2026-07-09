@@ -9,7 +9,7 @@ from custom_components.scrypted.const import (
 )
 
 
-async def setup_entry(hass):
+async def setup_entry(hass, device_types=None):
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -23,7 +23,8 @@ async def setup_entry(hass):
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
             CONF_ENABLE_ENTITIES: True,
-            "device_types": ["Camera", "Doorbell", "Sensor"],
+            "device_types": device_types
+            or ["Camera", "Doorbell", "Sensor"],
         },
     )
     entry.add_to_hass(hass)

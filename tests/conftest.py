@@ -67,6 +67,14 @@ class FakeDevice:
         )
         object.__setattr__(self, "startIntercom", AsyncMock())
         object.__setattr__(self, "stopIntercom", AsyncMock())
+        for command in (
+            "turnOn", "turnOff", "setBrightness", "setColorTemperature",
+            "setHsv", "setRgb", "lock", "unlock", "setFan", "setTemperature",
+            "openEntry", "closeEntry", "start", "stop", "pause", "resume", "dock",
+        ):
+            object.__setattr__(self, command, AsyncMock())
+        object.__setattr__(self, "getTemperatureMaxK", AsyncMock(return_value=6500))
+        object.__setattr__(self, "getTemperatureMinK", AsyncMock(return_value=2000))
 
     def __getattr__(self, name):
         device_state = self._manager.systemState.get(self.id) or {}
@@ -230,6 +238,74 @@ DEFAULT_SYSTEM_STATE = {
         pluginId="@scrypted/homeassistant",
         interfaces=["VideoCamera", "OnOff", "Online"],
         on=False,
+        online=True,
+    ),
+    "light1": state(
+        name="Desk Light",
+        type="Light",
+        info={},
+        interfaces=["OnOff", "Brightness", "ColorSettingTemperature", "ColorSettingHsv", "Online"],
+        on=False,
+        brightness=50,
+        colorTemperature=3000,
+        hsv={"h": 120, "s": 0.5, "v": 1},
+        online=True,
+    ),
+    "outlet1": state(
+        name="Heater Plug",
+        type="Outlet",
+        info={},
+        interfaces=["OnOff", "Online"],
+        on=True,
+        online=True,
+    ),
+    "lock1": state(
+        name="Side Door",
+        type="Lock",
+        info={},
+        interfaces=["Lock", "Online"],
+        lockState="Locked",
+        online=True,
+    ),
+    "fan1": state(
+        name="Attic Fan",
+        type="Fan",
+        info={},
+        interfaces=["Fan", "Online"],
+        fan={"speed": 2, "maxSpeed": 4, "mode": "Manual", "availableModes": ["Manual", "Auto"]},
+        online=True,
+    ),
+    "thermo1": state(
+        name="Hallway Thermostat",
+        type="Thermostat",
+        info={},
+        interfaces=["TemperatureSetting", "Thermometer", "HumiditySensor", "Online"],
+        temperatureSetting={
+            "availableModes": ["Off", "Heat", "Cool", "HeatCool"],
+            "mode": "Heat",
+            "activeMode": "Heat",
+            "setpoint": 21,
+        },
+        temperature=20,
+        humidity=40,
+        online=True,
+    ),
+    "garage1": state(
+        name="Garage Door",
+        type="Garage",
+        info={},
+        interfaces=["Entry", "EntrySensor", "Online"],
+        entryOpen=False,
+        online=True,
+    ),
+    "vac1": state(
+        name="Robo Vac",
+        type="Vacuum",
+        info={},
+        interfaces=["StartStop", "Pause", "Dock", "Online"],
+        running=False,
+        paused=False,
+        docked=True,
         online=True,
     ),
 }
