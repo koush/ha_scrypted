@@ -30,3 +30,7 @@ EXCLUDED_DEVICE_TYPES = {
 # Device-type allowlist option: which scrypted device types produce entities.
 CONF_DEVICE_TYPES = "device_types"
 DEFAULT_DEVICE_TYPES = ["Camera", "Doorbell"]
+
+# scrypted plugin that imports HA entities into scrypted; mirroring those
+# back would duplicate entities and loop commands through two hops.
+HA_PLUGIN_ID = "@scrypted/homeassistant"

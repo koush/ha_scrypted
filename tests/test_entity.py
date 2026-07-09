@@ -65,3 +65,14 @@ def test_entity_handles_missing_device_and_values(fake_sdk):
     # no sdk -> no device
     client.sdk = None
     assert entity.device is None
+
+
+async def test_ha_imported_devices_are_excluded(hass, fake_sdk, enable_custom_integrations):
+    """Devices provided by @scrypted/homeassistant never round-trip into HA."""
+    from tests.test_binary_sensor import setup_entry
+
+    await setup_entry(hass)
+    # haimport1 has VideoCamera + allowlisted type, but must produce nothing
+    assert not [
+        s for s in hass.states.async_all() if "imported_ha_light" in s.entity_id
+    ]

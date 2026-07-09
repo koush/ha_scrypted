@@ -16,6 +16,7 @@ from .const import (
     CONF_DEVICE_TYPES,
     DEFAULT_DEVICE_TYPES,
     DOMAIN,
+    HA_PLUGIN_ID,
     SIGNAL_CONNECTION,
     SIGNAL_DEVICE_UPDATE,
 )
@@ -44,6 +45,8 @@ def device_matches(client: ScryptedClient, device_id: str, interface: str) -> bo
     """
     device = client.sdk.systemManager.getDeviceById(device_id)
     if device is None:
+        return False
+    if device.pluginId == HA_PLUGIN_ID:
         return False
     allowed_types = client.entry.options.get(CONF_DEVICE_TYPES, DEFAULT_DEVICE_TYPES)
     if (device.type or "Unknown") not in allowed_types:

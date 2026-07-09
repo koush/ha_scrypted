@@ -223,6 +223,15 @@ DEFAULT_SYSTEM_STATE = {
         interfaces=["Online", "ScryptedPlugin"],
         online=True,
     ),
+    "haimport1": state(
+        name="Imported HA Light",
+        type="Camera",  # type passes the default allowlist on purpose
+        info={},
+        pluginId="@scrypted/homeassistant",
+        interfaces=["VideoCamera", "OnOff", "Online"],
+        on=False,
+        online=True,
+    ),
 }
 
 
