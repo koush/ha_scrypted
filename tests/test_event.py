@@ -58,15 +58,72 @@ async def test_doorbell_press_event(hass, fake_sdk, enable_custom_integrations):
     assert hass.states.get("event.doorbell_doorbell").last_changed == last_changed
 
 
-async def test_object_types_failure_falls_back(
+async def test_object_types_failure_skips_entity(
     hass, fake_sdk, enable_custom_integrations
 ):
+    """Unknown classes -> no entity; motion is filtered so it could never fire."""
     fake_sdk.systemManager.getDeviceById("cam1").getObjectTypes.side_effect = (
         RuntimeError("nope")
     )
     await setup_entry(hass)
+    assert hass.states.get("event.front_door_cam_object_detected") is None
+
+
+async def test_motion_only_detector_skips_entity(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """Motion-only detectors are covered by the motion binary_sensor."""
+    fake_sdk.systemManager.getDeviceById("cam1").getObjectTypes.return_value = {
+        "classes": ["motion"]
+    }
+    await setup_entry(hass)
+    assert hass.states.get("event.front_door_cam_object_detected") is None
+
+
+async def test_motion_class_excluded_from_event_types(
+    hass, fake_sdk, enable_custom_integrations
+):
+    fake_sdk.systemManager.getDeviceById("cam1").getObjectTypes.return_value = {
+        "classes": ["motion", "person", "car"]
+    }
+    await setup_entry(hass)
     state = hass.states.get("event.front_door_cam_object_detected")
-    assert state.attributes["event_types"] == ["motion"]
+    assert state.attributes["event_types"] == ["person", "car"]
+
+
+async def test_motion_detections_do_not_fire_events(
+    hass, fake_sdk, enable_custom_integrations
+):
+    await setup_entry(hass)
+
+    # scrypted's motion pipeline reports motion as a detection class; the
+    # motion binary_sensor owns that signal, so the event entity ignores it.
+    fake_sdk.systemManager.fire_device_event(
+        "cam1",
+        "ObjectDetector",
+        {"detections": [{"className": "motion", "score": 1}], "timestamp": 1},
+    )
+    await hass.async_block_till_done()
+    state = hass.states.get("event.front_door_cam_object_detected")
+    assert state.state == "unknown"
+    assert "motion" not in state.attributes["event_types"]
+
+    # mixed payloads only fire the classified objects
+    fake_sdk.systemManager.fire_device_event(
+        "cam1",
+        "ObjectDetector",
+        {
+            "detections": [
+                {"className": "motion", "score": 1},
+                {"className": "person", "score": 0.9},
+            ],
+            "timestamp": 2,
+        },
+    )
+    await hass.async_block_till_done()
+    state = hass.states.get("event.front_door_cam_object_detected")
+    assert state.attributes["event_type"] == "person"
+    assert "motion" not in state.attributes["event_types"]
 
 
 async def test_detection_without_class_ignored(

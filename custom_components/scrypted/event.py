@@ -20,6 +20,11 @@ from .sdk_compat import ScryptedInterface
 
 _LOGGER = logging.getLogger(__name__)
 
+# scrypted reports motion as a detection class (its motion pipeline rides the
+# ObjectDetector interface); HA already exposes that signal via the motion
+# binary_sensor, so the event entity only handles classified objects.
+MOTION_CLASS = "motion"
+
 OBJECT_DETECTED = EventEntityDescription(
     key="object_detected",
     name="Object detected",
@@ -43,8 +48,7 @@ async def async_setup_entry(
         return
     known: set[tuple[str, str]] = set()
 
-    @callback
-    def _add_for_device(device_id: str) -> None:
+    async def _add_for_device(device_id: str) -> None:
         entities: list[EventEntity] = []
         device = client.sdk.systemManager.getDeviceById(device_id)
         if device is None:
@@ -53,12 +57,16 @@ async def async_setup_entry(
             device_matches(client, device_id, ScryptedInterface.ObjectDetector.value)
             and (device_id, OBJECT_DETECTED.key) not in known
         ):
-            known.add((device_id, OBJECT_DETECTED.key))
-            entities.append(
-                ScryptedObjectDetectionEvent(
-                    client, config_entry, device_id, OBJECT_DETECTED
+            # Motion-only detectors (and detectors with unknown classes) get
+            # no entity: with motion filtered it could never fire.
+            event_types = await _async_object_event_types(device)
+            if event_types:
+                known.add((device_id, OBJECT_DETECTED.key))
+                entities.append(
+                    ScryptedObjectDetectionEvent(
+                        client, config_entry, device_id, OBJECT_DETECTED, event_types
+                    )
                 )
-            )
         if (
             device.type == "Doorbell"
             and device_matches(
@@ -74,13 +82,24 @@ async def async_setup_entry(
             async_add_entities(entities)
 
     for device_id in client.device_ids:
-        _add_for_device(device_id)
+        await _add_for_device(device_id)
 
     config_entry.async_on_unload(
         async_dispatcher_connect(
             hass, SIGNAL_NEW_DEVICE.format(config_entry.entry_id), _add_for_device
         )
     )
+
+
+async def _async_object_event_types(device) -> list[str]:
+    """Detection classes the device can report, minus scrypted's motion class."""
+    try:
+        object_types = await device.getObjectTypes()
+        classes = list((object_types or {}).get("classes") or [])
+    except Exception:  # noqa: BLE001 - some detectors don't implement this
+        _LOGGER.debug("getObjectTypes failed for %s", device.id, exc_info=True)
+        classes = []
+    return [name for name in classes if name != MOTION_CLASS]
 
 
 class ScryptedObjectDetectionEvent(ScryptedDeviceEntity, EventEntity):
@@ -91,14 +110,13 @@ class ScryptedObjectDetectionEvent(ScryptedDeviceEntity, EventEntity):
     re-register it after every reconnect.
     """
 
-    def __init__(self, client, entry, device_id, description) -> None:
+    def __init__(self, client, entry, device_id, description, event_types) -> None:
         super().__init__(client, entry, device_id, description)
-        self._attr_event_types: list[str] = []
+        self._attr_event_types: list[str] = event_types
         self._unregister = None
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        await self._async_load_event_types()
         self._register_listener()
         # Re-register the server-side listener after reconnects.
         self.async_on_remove(
@@ -111,18 +129,6 @@ class ScryptedObjectDetectionEvent(ScryptedDeviceEntity, EventEntity):
 
     async def async_will_remove_from_hass(self) -> None:
         self._remove_listener()
-
-    async def _async_load_event_types(self) -> None:
-        device = self.device
-        try:
-            object_types = await device.getObjectTypes()
-            classes = list((object_types or {}).get("classes") or [])
-        except Exception:  # noqa: BLE001 - some detectors don't implement this
-            _LOGGER.debug(
-                "getObjectTypes failed for %s", self.device_id, exc_info=True
-            )
-            classes = []
-        self._attr_event_types = classes or ["motion"]
 
     def _register_listener(self) -> None:
         if not self.client.sdk:
@@ -151,7 +157,7 @@ class ScryptedObjectDetectionEvent(ScryptedDeviceEntity, EventEntity):
         seen: set[str] = set()
         for detection in detections:
             class_name = detection.get("className")
-            if not class_name or class_name in seen:
+            if not class_name or class_name == MOTION_CLASS or class_name in seen:
                 continue
             seen.add(class_name)
             if class_name not in self._attr_event_types:
