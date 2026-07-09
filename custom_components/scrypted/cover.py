@@ -20,6 +20,7 @@ from .entity import (
     async_setup_scrypted_platform,
     device_matches,
 )
+from .sdk_compat import ScryptedInterface
 
 COVER_DEVICE_CLASSES = {
     "Garage": CoverDeviceClass.GARAGE,
@@ -36,7 +37,7 @@ class ScryptedCoverDescription(CoverEntityDescription, ScryptedEntityDescription
 COVER = ScryptedCoverDescription(
     key="cover",
     name=None,
-    interface="Entry",
+    interface=ScryptedInterface.Entry.value,
     state_property="entryOpen",
 )
 
@@ -72,7 +73,9 @@ class ScryptedCover(ScryptedDeviceEntity, CoverEntity):
         super().__init__(client, entry, device_id, description)
         device = client.sdk.systemManager.getDeviceById(device_id)
         self._attr_device_class = COVER_DEVICE_CLASSES[device.type]
-        self._has_sensor = "EntrySensor" in (device.interfaces or [])
+        self._has_sensor = ScryptedInterface.EntrySensor.value in (
+            device.interfaces or []
+        )
         self._attr_assumed_state = not self._has_sensor
 
     @property

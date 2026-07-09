@@ -19,6 +19,7 @@ from .entity import (
     async_setup_scrypted_platform,
     device_matches,
 )
+from .sdk_compat import ScryptedInterface
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -29,7 +30,7 @@ class ScryptedFanDescription(FanEntityDescription, ScryptedEntityDescriptionMixi
 FAN = ScryptedFanDescription(
     key="fan",
     name=None,
-    interface="Fan",
+    interface=ScryptedInterface.Fan.value,
     state_property="fan",
 )
 
@@ -85,7 +86,7 @@ class ScryptedFan(ScryptedDeviceEntity, FanEntity):
     @property
     def percentage(self) -> int | None:
         speed = self._status.get("speed")
-        return None if speed is None else round(speed * 100 / self._max_speed)
+        return None if speed is None else min(100, round(speed * 100 / self._max_speed))
 
     @property
     def preset_mode(self) -> str | None:
@@ -104,7 +105,12 @@ class ScryptedFan(ScryptedDeviceEntity, FanEntity):
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         await self._async_device_command("setFan", {"mode": preset_mode})
 
-    async def async_turn_on(self, percentage: int | None = None, preset_mode: str | None = None, **kwargs: Any) -> None:
+    async def async_turn_on(
+        self,
+        percentage: int | None = None,
+        preset_mode: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         if preset_mode is not None:
             await self.async_set_preset_mode(preset_mode)
         if percentage is not None:

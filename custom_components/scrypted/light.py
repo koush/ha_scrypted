@@ -24,6 +24,7 @@ from .entity import (
     async_setup_scrypted_platform,
     device_matches,
 )
+from .sdk_compat import ScryptedInterface
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class ScryptedLightDescription(LightEntityDescription, ScryptedEntityDescription
 LIGHT = ScryptedLightDescription(
     key="light",
     name=None,
-    interface="OnOff",
+    interface=ScryptedInterface.OnOff.value,
     state_property="on",
 )
 
@@ -72,16 +73,16 @@ class ScryptedLight(ScryptedDeviceEntity, LightEntity):
         device = client.sdk.systemManager.getDeviceById(device_id)
         interfaces = set(device.interfaces or [])
         modes: set[ColorMode] = set()
-        if "ColorSettingHsv" in interfaces:
+        if ScryptedInterface.ColorSettingHsv.value in interfaces:
             modes.add(ColorMode.HS)
-        elif "ColorSettingRgb" in interfaces:
+        elif ScryptedInterface.ColorSettingRgb.value in interfaces:
             modes.add(ColorMode.RGB)
-        if "ColorSettingTemperature" in interfaces:
+        if ScryptedInterface.ColorSettingTemperature.value in interfaces:
             modes.add(ColorMode.COLOR_TEMP)
         if not modes:
             modes = (
                 {ColorMode.BRIGHTNESS}
-                if "Brightness" in interfaces
+                if ScryptedInterface.Brightness.value in interfaces
                 else {ColorMode.ONOFF}
             )
         self._attr_supported_color_modes = modes

@@ -19,6 +19,7 @@ from .entity import (
     async_setup_scrypted_platform,
     device_matches,
 )
+from .sdk_compat import ScryptedInterface
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -31,7 +32,7 @@ class ScryptedVacuumDescription(
 VACUUM = ScryptedVacuumDescription(
     key="vacuum",
     name=None,
-    interface="StartStop",
+    interface=ScryptedInterface.StartStop.value,
     state_property="running",
 )
 
@@ -71,10 +72,10 @@ class ScryptedVacuum(ScryptedDeviceEntity, StateVacuumEntity):
             | VacuumEntityFeature.STOP
             | VacuumEntityFeature.STATE
         )
-        self._has_pause = "Pause" in interfaces
+        self._has_pause = ScryptedInterface.Pause.value in interfaces
         if self._has_pause:
             features |= VacuumEntityFeature.PAUSE
-        if "Dock" in interfaces:
+        if ScryptedInterface.Dock.value in interfaces:
             features |= VacuumEntityFeature.RETURN_HOME
         self._attr_supported_features = features
 

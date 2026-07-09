@@ -74,6 +74,20 @@ async def test_fan_turn_on_with_percentage(hass, fake_sdk, enable_custom_integra
     device.setFan.assert_awaited_with({"speed": 1})
 
 
+async def test_fan_percentage_clamped_when_maxspeed_missing(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """A pushed FanStatus missing maxSpeed (defaults to 1) must not exceed 100%."""
+    await setup_entry(hass, device_types=TYPES)
+
+    fake_sdk.systemManager.set_property("fan1", "fan", {"speed": 2})
+    await hass.async_block_till_done()
+
+    state = hass.states.get("fan.attic_fan")
+    assert state is not None
+    assert state.attributes["percentage"] == 100
+
+
 async def test_fan_turn_on_remembers_speed_from_push_update(
     hass, fake_sdk, enable_custom_integrations
 ):

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.climate import (
+    ATTR_HVAC_MODE,
     ATTR_TARGET_TEMP_HIGH,
     ATTR_TARGET_TEMP_LOW,
     ClimateEntity,
@@ -24,6 +25,7 @@ from .entity import (
     async_setup_scrypted_platform,
     device_matches,
 )
+from .sdk_compat import ScryptedInterface
 
 SCRYPTED_TO_HVAC = {
     "Off": HVACMode.OFF,
@@ -54,7 +56,7 @@ class ScryptedClimateDescription(
 CLIMATE = ScryptedClimateDescription(
     key="climate",
     name=None,
-    interface="TemperatureSetting",
+    interface=ScryptedInterface.TemperatureSetting.value,
     state_property="temperatureSetting",
 )
 
@@ -158,7 +160,7 @@ class ScryptedThermostat(ScryptedDeviceEntity, ClimateEntity):
             ]
         elif ATTR_TEMPERATURE in kwargs:
             command["setpoint"] = kwargs[ATTR_TEMPERATURE]
-        if kwargs.get("hvac_mode") in HVAC_TO_SCRYPTED:
-            command["mode"] = HVAC_TO_SCRYPTED[kwargs["hvac_mode"]]
+        if kwargs.get(ATTR_HVAC_MODE) in HVAC_TO_SCRYPTED:
+            command["mode"] = HVAC_TO_SCRYPTED[kwargs[ATTR_HVAC_MODE]]
         if command:
             await self._async_device_command("setTemperature", command)

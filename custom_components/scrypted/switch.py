@@ -19,6 +19,7 @@ from .entity import (
     async_setup_scrypted_platform,
     device_matches,
 )
+from .sdk_compat import ScryptedInterface
 
 SWITCH_TYPES = {"Switch", "Outlet"}
 
@@ -31,7 +32,7 @@ class ScryptedSwitchDescription(SwitchEntityDescription, ScryptedEntityDescripti
 SWITCH = ScryptedSwitchDescription(
     key="switch",
     name=None,
-    interface="OnOff",
+    interface=ScryptedInterface.OnOff.value,
     state_property="on",
 )
 

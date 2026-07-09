@@ -15,6 +15,7 @@ from .entity import (
     async_setup_scrypted_platform,
     device_matches,
 )
+from .sdk_compat import ScryptedInterface
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -25,7 +26,7 @@ class ScryptedLockDescription(LockEntityDescription, ScryptedEntityDescriptionMi
 LOCK = ScryptedLockDescription(
     key="lock",
     name=None,
-    interface="Lock",
+    interface=ScryptedInterface.Lock.value,
     state_property="lockState",
 )
 
