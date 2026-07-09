@@ -32,6 +32,25 @@
    - The credentials reauth step currently collects the panel name/icon alongside passwords; move those UI fields into the options flow so credential updates only prompt for authentication details.
    - Once the options flow exposes these fields, remove them from the credentials step to reduce user confusion.
 
+## Controllable devices follow-ups (from final review, 2026-07-08)
+
+- Reconnect discovery gap (pre-existing): `ScryptedClient.async_connect` reseeds
+  `_known_ids` on reconnect, so devices added during an outage never fire
+  SIGNAL_NEW_DEVICE and get no entities until reload. Fix by dispatching the
+  signal for genuinely-new ids on reconnect (the platform helper's dedup makes
+  redundant signals safe).
+- Climate `supported_features` flips between TARGET_TEMPERATURE and
+  TARGET_TEMPERATURE_RANGE based on the live setpoint shape and advertises
+  TURN_OFF even when "Off" isn't an available mode; derive stable flags from
+  `availableModes` instead.
+- Fan `availableModes` is captured only at entity construction; a fan whose
+  FanStatus populates after discovery never gains PRESET_MODE.
+- `async_remove_config_entry_device` in `__init__.py` reimplements the
+  discovery check inline and lacks the HA_PLUGIN_ID loop guard; extract a
+  shared predicate with `device_matches`.
+- Consider an optional `types` parameter on `device_matches` to collapse the
+  repeated type-gate + interface-check shape in the seven `_discover` closures.
+
 ## Device entities follow-ups
 
 - Replace vendored SDK symlinks with the published scrypted client package in
