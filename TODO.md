@@ -59,9 +59,8 @@
   unavailable until the entry is reloaded.
 - PTZ support (`PanTiltZoom` interface) on cameras.
 - Lock / switch / light platforms for controllable scrypted devices.
-- Upstream the python-client fixes found during development: test.py uses
-  writeJSON (rpc_reader now calls writeSerialized) and passes the peer where
-  PluginRemote now expects a ClusterSetup.
+- python-client test.py fixes (writeSerialized + ClusterSetup) filed upstream
+  as https://github.com/koush/scrypted/pull/2087.
 - PluginRemote.notify event dispatch + EventRegistry.listenDevice fixes are
   applied in the sibling scrypted checkout (branch python-sdk-event-dispatch,
   PR to koush/scrypted); tests/test_sdk_events.py pins the contract. Until the
