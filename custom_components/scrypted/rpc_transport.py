@@ -168,19 +168,26 @@ async def async_connect_sdk(
             await wrapped(system_state)
 
             async def resolve():
+                if ret.done():
+                    return
                 sdk = ScryptedStatic()
                 sdk.api = api
                 sdk.remote = remote
-                sdk.systemManager = plugin_remote.SystemManager(
+                system_manager = plugin_remote.SystemManager(
                     api, remote.systemState
                 )
+                sdk.systemManager = system_manager
                 sdk.deviceManager = plugin_remote.DeviceManager(
-                    remote.nativeIds, sdk.systemManager
+                    remote.nativeIds, system_manager
                 )
                 sdk.mediaManager = plugin_remote.MediaManager(
                     await api.getMediaManager()
                 )
                 if not ret.done():
+                    # PluginRemote.notify dispatches events to the attached
+                    # systemManager's registry (same wiring as loadZip); this
+                    # is what makes systemManager.listen() callbacks fire.
+                    remote.systemManager = system_manager
                     ret.set_result(sdk)
 
             loop.create_task(resolve())
