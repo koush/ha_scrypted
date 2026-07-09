@@ -16,13 +16,11 @@ from homeassistant.components.camera import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .client import ScryptedClient
-from .const import SIGNAL_NEW_DEVICE
-from .entity import ScryptedDeviceEntity, device_matches
+from .entity import ScryptedDeviceEntity, async_setup_scrypted_platform, device_matches
 from .sdk_compat import ScryptedInterface, ScryptedMimeTypes
 from .webrtc import HomeAssistantSignalingSession
 
@@ -40,36 +38,22 @@ async def async_setup_entry(
 ) -> None:
     """Set up scrypted cameras."""
     client = config_entry.runtime_data.client
-    if client is None:
-        return
-    known: set[str] = set()
 
-    @callback
-    def _add_for_device(device_id: str) -> None:
-        if device_id in known:
-            return
+    def _discover(device_id: str) -> list[ScryptedCamera]:
         if not device_matches(
             client, device_id, ScryptedInterface.VideoCamera.value
         ):
-            return
-        known.add(device_id)
+            return []
         device = client.sdk.systemManager.getDeviceById(device_id)
         camera_cls = (
             ScryptedWebRTCCamera
             if ScryptedInterface.RTCSignalingChannel.value in (device.interfaces or [])
             else ScryptedCamera
         )
-        async_add_entities(
-            [camera_cls(client, config_entry, device_id, CAMERA_DESCRIPTION)]
-        )
+        return [camera_cls(client, config_entry, device_id, CAMERA_DESCRIPTION)]
 
-    for device_id in client.device_ids:
-        _add_for_device(device_id)
-
-    config_entry.async_on_unload(
-        async_dispatcher_connect(
-            hass, SIGNAL_NEW_DEVICE.format(config_entry.entry_id), _add_for_device
-        )
+    await async_setup_scrypted_platform(
+        hass, config_entry, async_add_entities, _discover
     )
 
 

@@ -10,14 +10,13 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import SIGNAL_NEW_DEVICE
 from .entity import (
     ScryptedDeviceEntity,
     ScryptedEntityDescriptionMixin,
+    async_setup_scrypted_platform,
     device_matches,
 )
 
@@ -124,32 +123,16 @@ async def async_setup_entry(
 ) -> None:
     """Set up scrypted binary sensors."""
     client = config_entry.runtime_data.client
-    if client is None:
-        return
-    known: set[tuple[str, str]] = set()
 
-    @callback
-    def _add_for_device(device_id: str) -> None:
-        entities = []
-        for description in BINARY_SENSORS:
-            if (device_id, description.key) in known:
-                continue
-            if not device_matches(client, device_id, description.interface):
-                continue
-            known.add((device_id, description.key))
-            entities.append(
-                ScryptedBinarySensor(client, config_entry, device_id, description)
-            )
-        if entities:
-            async_add_entities(entities)
+    def _discover(device_id: str) -> list[ScryptedBinarySensor]:
+        return [
+            ScryptedBinarySensor(client, config_entry, device_id, description)
+            for description in BINARY_SENSORS
+            if device_matches(client, device_id, description.interface)
+        ]
 
-    for device_id in client.device_ids:
-        _add_for_device(device_id)
-
-    config_entry.async_on_unload(
-        async_dispatcher_connect(
-            hass, SIGNAL_NEW_DEVICE.format(config_entry.entry_id), _add_for_device
-        )
+    await async_setup_scrypted_platform(
+        hass, config_entry, async_add_entities, _discover
     )
 
 

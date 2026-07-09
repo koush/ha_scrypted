@@ -14,8 +14,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import SIGNAL_CONNECTION, SIGNAL_NEW_DEVICE
-from .entity import ScryptedDeviceEntity, device_matches
+from .const import SIGNAL_CONNECTION
+from .entity import ScryptedDeviceEntity, async_setup_scrypted_platform, device_matches
 from .sdk_compat import ScryptedInterface
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,50 +44,30 @@ async def async_setup_entry(
 ) -> None:
     """Set up scrypted event entities."""
     client = config_entry.runtime_data.client
-    if client is None:
-        return
-    known: set[tuple[str, str]] = set()
 
-    async def _add_for_device(device_id: str) -> None:
+    async def _discover(device_id: str) -> list[EventEntity]:
         entities: list[EventEntity] = []
         device = client.sdk.systemManager.getDeviceById(device_id)
         if device is None:
-            return
-        if (
-            device_matches(client, device_id, ScryptedInterface.ObjectDetector.value)
-            and (device_id, OBJECT_DETECTED.key) not in known
-        ):
-            # Motion-only detectors (and detectors with unknown classes) get
-            # no entity: with motion filtered it could never fire.
+            return entities
+        if device_matches(client, device_id, ScryptedInterface.ObjectDetector.value):
             event_types = await _async_object_event_types(device)
             if event_types:
-                known.add((device_id, OBJECT_DETECTED.key))
                 entities.append(
                     ScryptedObjectDetectionEvent(
                         client, config_entry, device_id, OBJECT_DETECTED, event_types
                     )
                 )
-        if (
-            device.type == "Doorbell"
-            and device_matches(
-                client, device_id, ScryptedInterface.BinarySensor.value
-            )
-            and (device_id, DOORBELL.key) not in known
+        if device.type == "Doorbell" and device_matches(
+            client, device_id, ScryptedInterface.BinarySensor.value
         ):
-            known.add((device_id, DOORBELL.key))
             entities.append(
                 ScryptedDoorbellEvent(client, config_entry, device_id, DOORBELL)
             )
-        if entities:
-            async_add_entities(entities)
+        return entities
 
-    for device_id in client.device_ids:
-        await _add_for_device(device_id)
-
-    config_entry.async_on_unload(
-        async_dispatcher_connect(
-            hass, SIGNAL_NEW_DEVICE.format(config_entry.entry_id), _add_for_device
-        )
+    await async_setup_scrypted_platform(
+        hass, config_entry, async_add_entities, _discover
     )
 
 

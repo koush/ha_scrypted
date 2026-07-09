@@ -2,16 +2,17 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .client import ScryptedClient
 from .const import (
@@ -57,7 +58,12 @@ def device_matches(client: ScryptedClient, device_id: str, interface: str) -> bo
     return interface in (device.interfaces or [])
 
 
-async def async_setup_scrypted_platform(hass, config_entry, async_add_entities, discover_fn):
+async def async_setup_scrypted_platform(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+    discover_fn: Callable[[str], list[Entity] | Awaitable[list[Entity]]],
+) -> None:
     """Shared platform setup: initial sweep + new-device discovery.
 
     discover_fn(device_id) returns a list of entities (may be a coroutine).
