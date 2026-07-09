@@ -1,11 +1,39 @@
-"""Vacuum entities for controllable scrypted devices."""
+"""Vacuum entities for scrypted Vacuum devices."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+from homeassistant.components.vacuum import (
+    StateVacuumEntity,
+    StateVacuumEntityDescription,
+    VacuumActivity,
+    VacuumEntityFeature,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .entity import async_setup_scrypted_platform
+from .entity import (
+    ScryptedDeviceEntity,
+    ScryptedEntityDescriptionMixin,
+    async_setup_scrypted_platform,
+    device_matches,
+)
+
+
+@dataclass(frozen=True, kw_only=True)
+class ScryptedVacuumDescription(
+    StateVacuumEntityDescription, ScryptedEntityDescriptionMixin
+):
+    """Describes a scrypted vacuum."""
+
+
+VACUUM = ScryptedVacuumDescription(
+    key="vacuum",
+    name=None,
+    interface="StartStop",
+    state_property="running",
+)
 
 
 async def async_setup_entry(
@@ -14,6 +42,65 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up scrypted vacuums."""
+    client = config_entry.runtime_data.client
+
+    def _discover(device_id: str) -> list[ScryptedVacuum]:
+        device = client.sdk.systemManager.getDeviceById(device_id)
+        if device is None or device.type != "Vacuum":
+            return []
+        if not device_matches(client, device_id, VACUUM.interface):
+            return []
+        return [ScryptedVacuum(client, config_entry, device_id, VACUUM)]
+
     await async_setup_scrypted_platform(
-        hass, config_entry, async_add_entities, lambda device_id: []
+        hass, config_entry, async_add_entities, _discover
     )
+
+
+class ScryptedVacuum(ScryptedDeviceEntity, StateVacuumEntity):
+    """StartStop/Pause/Dock control for scrypted vacuums."""
+
+    entity_description: ScryptedVacuumDescription
+
+    def __init__(self, client, entry, device_id, description) -> None:
+        super().__init__(client, entry, device_id, description)
+        device = client.sdk.systemManager.getDeviceById(device_id)
+        interfaces = set(device.interfaces or [])
+        features = (
+            VacuumEntityFeature.START
+            | VacuumEntityFeature.STOP
+            | VacuumEntityFeature.STATE
+        )
+        self._has_pause = "Pause" in interfaces
+        if self._has_pause:
+            features |= VacuumEntityFeature.PAUSE
+        if "Dock" in interfaces:
+            features |= VacuumEntityFeature.RETURN_HOME
+        self._attr_supported_features = features
+
+    @property
+    def activity(self) -> VacuumActivity | None:
+        device = self.device
+        if device is None:
+            return None
+        if device.running:
+            return VacuumActivity.PAUSED if device.paused else VacuumActivity.CLEANING
+        if device.docked:
+            return VacuumActivity.DOCKED
+        return VacuumActivity.IDLE
+
+    async def async_start(self) -> None:
+        device = self.device
+        if self._has_pause and device is not None and device.paused:
+            await self._async_device_command("resume")
+            return
+        await self._async_device_command("start")
+
+    async def async_stop(self, **kwargs) -> None:
+        await self._async_device_command("stop")
+
+    async def async_pause(self) -> None:
+        await self._async_device_command("pause")
+
+    async def async_return_to_base(self, **kwargs) -> None:
+        await self._async_device_command("dock")
