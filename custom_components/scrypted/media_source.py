@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from yarl import URL
 
+from homeassistant.components.camera import DynamicStreamSettings
 from homeassistant.components.media_player import BrowseError, MediaClass
 from homeassistant.components.media_source import (
     BrowseMediaSource,
@@ -14,13 +15,14 @@ from homeassistant.components.media_source import (
     PlayMedia,
     Unresolvable,
 )
+from homeassistant.components.stream import FORMAT_CONTENT_TYPE, HLS_PROVIDER, create_stream
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .entity import device_matches
-from .sdk_compat import ScryptedInterface
+from .sdk_compat import ScryptedInterface, ScryptedMimeTypes
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -112,14 +114,33 @@ class ScryptedMediaSource(MediaSource):
             raise Unresolvable(f"Clip {clip_id} not found")
         token = _entry_token(self.hass, entry_id)
         href = _resource_href(clip, "video")
-        if href is None:
-            client = entry.runtime_data.client
-            device = client.sdk.systemManager.getDeviceById(device_id)
-            media_object = await device.getVideoClip(clip["videoId"])
-            href = await client.sdk.mediaManager.convertMediaObjectToUrl(
-                media_object, "video/mp4"
-            )
-        return PlayMedia(_proxy_url(token, href), "video/mp4")
+        if href is not None:
+            return PlayMedia(_proxy_url(token, href), "video/mp4")
+        client = entry.runtime_data.client
+        device = client.sdk.systemManager.getDeviceById(device_id)
+        media_object = await device.getVideoClip(clip["videoId"])
+        ffmpeg_input = await client.sdk.mediaManager.convertMediaObjectToJSON(
+            media_object, ScryptedMimeTypes.FFmpegInput.value
+        )
+        urls = ffmpeg_input.get("urls") or []
+        rtsp_url = next(iter(urls), None) or ffmpeg_input.get("url")
+        if not rtsp_url:
+            raise Unresolvable(f"Clip {clip_id} has no playable stream")
+        return await self._async_hls_play_media(rtsp_url)
+
+    async def _async_hls_play_media(self, rtsp_url: str) -> PlayMedia:
+        """Expose an RTSP clip session as browser-playable HLS via HA's stream component."""
+        stream = create_stream(
+            self.hass,
+            rtsp_url,
+            options={},
+            dynamic_stream_settings=DynamicStreamSettings(),
+        )
+        stream.add_provider(HLS_PROVIDER)
+        await stream.start()
+        return PlayMedia(
+            stream.endpoint_url(HLS_PROVIDER), FORMAT_CONTENT_TYPE[HLS_PROVIDER]
+        )
 
     def _get_entry(
         self, entry_id: str, error_cls: type[Exception] = BrowseError

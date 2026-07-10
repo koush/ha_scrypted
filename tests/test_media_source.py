@@ -1,9 +1,12 @@
 """Tests for the scrypted NVR clips media source."""
+from unittest.mock import AsyncMock, Mock
+
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.components import media_source
 from homeassistant.components.media_player import BrowseError
+from homeassistant.components.stream import FORMAT_CONTENT_TYPE, HLS_PROVIDER
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 
@@ -105,6 +108,49 @@ async def test_resolve_clip_with_resources(hass, fake_sdk, enable_custom_integra
 
 
 async def test_resolve_clip_without_resources_falls_back(
+    hass, fake_sdk, enable_custom_integrations, monkeypatch
+):
+    entry = await setup_media_source(hass)
+    device = fake_sdk.systemManager.getDeviceById("cam1")
+    device.getVideoClips.return_value = [
+        video_clip("clip1", today_ms(), with_resources=False)
+    ]
+    day_id = dt_util.now().strftime("%Y-%m-%d")
+
+    fake_sdk.mediaManager.convertMediaObjectToJSON.return_value = {
+        "url": "rtsp://127.0.0.1:1/x",
+        "urls": ["rtsp://192.168.0.9:1/x"],
+    }
+
+    fake_stream = Mock()
+    fake_stream.add_provider = Mock()
+    fake_stream.start = AsyncMock()
+    fake_stream.endpoint_url = Mock(
+        return_value="/api/hls/xyz/master_playlist.m3u8"
+    )
+    create_stream_mock = Mock(return_value=fake_stream)
+    monkeypatch.setattr(
+        "custom_components.scrypted.media_source.create_stream", create_stream_mock
+    )
+
+    play = await media_source.async_resolve_media(
+        hass, f"media-source://scrypted/{entry.entry_id}/cam1/{day_id}/clip1", None
+    )
+
+    device.getVideoClip.assert_awaited_once_with("clip1")
+    fake_sdk.mediaManager.convertMediaObjectToJSON.assert_awaited_once()
+    assert (
+        fake_sdk.mediaManager.convertMediaObjectToJSON.await_args.args[1]
+        == "x-scrypted/x-ffmpeg-input"
+    )
+    assert create_stream_mock.call_args.args[1] == "rtsp://192.168.0.9:1/x"
+    fake_stream.add_provider.assert_called_once_with(HLS_PROVIDER)
+    fake_stream.start.assert_awaited_once()
+    assert play.url == "/api/hls/xyz/master_playlist.m3u8"
+    assert play.mime_type == FORMAT_CONTENT_TYPE[HLS_PROVIDER]
+
+
+async def test_resolve_clip_ffmpeg_input_without_urls_unresolvable(
     hass, fake_sdk, enable_custom_integrations
 ):
     entry = await setup_media_source(hass)
@@ -114,12 +160,12 @@ async def test_resolve_clip_without_resources_falls_back(
     ]
     day_id = dt_util.now().strftime("%Y-%m-%d")
 
-    play = await media_source.async_resolve_media(
-        hass, f"media-source://scrypted/{entry.entry_id}/cam1/{day_id}/clip1", None
-    )
-    device.getVideoClip.assert_awaited_once_with("clip1")
-    fake_sdk.mediaManager.convertMediaObjectToUrl.assert_awaited()
-    assert play.url == "/api/scrypted/token/endpoint/@scrypted/nvr/converted"
+    fake_sdk.mediaManager.convertMediaObjectToJSON.return_value = {"container": "rtsp"}
+
+    with pytest.raises(media_source.Unresolvable, match="clip1"):
+        await media_source.async_resolve_media(
+            hass, f"media-source://scrypted/{entry.entry_id}/cam1/{day_id}/clip1", None
+        )
 
 
 async def test_resolve_unknown_clip_unresolvable(hass, fake_sdk, enable_custom_integrations):

@@ -6,3 +6,4 @@ pytest-homeassistant-custom-component
 python-engineio[asyncio_client]>=4.9.0
 home-assistant-frontend
 PyTurboJPEG
+av
