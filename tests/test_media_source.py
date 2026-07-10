@@ -14,6 +14,7 @@ from custom_components.scrypted.const import (
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
+from custom_components.scrypted.media_source import _entry_token
 from tests.conftest import video_clip
 from tests.test_binary_sensor import setup_entry
 
@@ -75,6 +76,19 @@ async def test_browse_day_lists_clips_with_one_rpc(hass, fake_sdk, enable_custom
     clip = day.children[0]
     assert clip.can_play and not clip.can_expand
     assert clip.thumbnail == "/api/scrypted/token/endpoint/@scrypted/nvr/public/clip1.jpg"
+
+
+async def test_day_window_spans_dst_transition(hass, fake_sdk, enable_custom_integrations):
+    """Fall-back day in America/New_York is 25 hours; the window must cover all of it."""
+    await hass.config.async_set_time_zone("America/New_York")
+    entry = await setup_media_source(hass)
+    device = fake_sdk.systemManager.getDeviceById("cam1")
+
+    await media_source.async_browse_media(
+        hass, f"media-source://scrypted/{entry.entry_id}/cam1/2026-11-01"
+    )
+    window = device.getVideoClips.await_args.args[0]
+    assert window["endTime"] - window["startTime"] == 25 * 3600 * 1000
 
 
 async def test_resolve_clip_with_resources(hass, fake_sdk, enable_custom_integrations):
@@ -187,6 +201,14 @@ async def test_resolve_malformed_identifier(hass, fake_sdk, enable_custom_integr
         await media_source.async_resolve_media(
             hass, f"media-source://scrypted/{entry.entry_id}/cam1", None
         )
+
+
+async def test_entry_token_missing_raises_browse_error(
+    hass, fake_sdk, enable_custom_integrations
+):
+    await setup_media_source(hass)
+    with pytest.raises(BrowseError, match="missing"):
+        _entry_token(hass, "missing")
 
 
 async def test_browse_root_with_multiple_entries_lists_entries(

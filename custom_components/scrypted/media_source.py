@@ -43,18 +43,18 @@ def _loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:
 
 
 def _entry_token(hass: HomeAssistant, entry_id: str) -> str:
-    """Look up the ingress token for a loaded entry.
-
-    Callers only reach here after `_get_entry` has confirmed the entry is
-    loaded, and `async_setup_entry` always populates `hass.data[DOMAIN]`
-    for a loaded entry before `runtime_data` is set, so a miss here can't
-    happen in practice.
-    """
-    return next(
-        token
-        for token, entry in hass.data[DOMAIN].items()
-        if entry.entry_id == entry_id
+    """Ingress token for a loaded entry (async_setup_entry registers it before load completes)."""
+    token = next(
+        (
+            token
+            for token, entry in hass.data[DOMAIN].items()
+            if entry.entry_id == entry_id
+        ),
+        None,
     )
+    if token is None:
+        raise BrowseError(f"Scrypted entry {entry_id} has no ingress token")
+    return token
 
 
 def _proxy_url(token: str, href: str) -> str:
@@ -86,6 +86,8 @@ class ScryptedMediaSource(MediaSource):
         self.hass = hass
 
     async def async_browse_media(self, item: MediaSourceItem) -> BrowseMediaSource:
+        # scrypted device/clip ids are internally generated and never contain
+        # "/", so a bounded split is safe here.
         parts = (item.identifier or "").split("/", 2) if item.identifier else []
         if not parts:
             return self._browse_root()
@@ -97,6 +99,8 @@ class ScryptedMediaSource(MediaSource):
         return await self._browse_day(entry, parts[1], parts[2])
 
     async def async_resolve_media(self, item: MediaSourceItem) -> PlayMedia:
+        # scrypted device/clip ids are internally generated and never contain
+        # "/"; a violating clip id just fails the lookup below as Unresolvable.
         parts = (item.identifier or "").split("/", 3)
         if len(parts) != 4:
             raise Unresolvable(f"Invalid clip identifier: {item.identifier}")
@@ -117,7 +121,9 @@ class ScryptedMediaSource(MediaSource):
             )
         return PlayMedia(_proxy_url(token, href), "video/mp4")
 
-    def _get_entry(self, entry_id: str, error_cls=BrowseError) -> ConfigEntry:
+    def _get_entry(
+        self, entry_id: str, error_cls: type[Exception] = BrowseError
+    ) -> ConfigEntry:
         for entry in _loaded_entries(self.hass):
             if entry.entry_id == entry_id:
                 if entry.runtime_data.client.sdk is None:
@@ -229,10 +235,12 @@ class ScryptedMediaSource(MediaSource):
         if day is None:
             raise BrowseError(f"Invalid day {day_id}")
         start = dt_util.start_of_local_day(day)
+        end = dt_util.start_of_local_day(day + timedelta(days=1))
         start_ms = int(start.timestamp() * 1000)
+        end_ms = int(end.timestamp() * 1000)
         try:
             return await device.getVideoClips(
-                {"startTime": start_ms, "endTime": start_ms + 24 * 3600 * 1000}
+                {"startTime": start_ms, "endTime": end_ms}
             ) or []
         except Exception as err:  # noqa: BLE001 - RPC failures surface in the UI
             _LOGGER.debug("getVideoClips failed for %s", device_id, exc_info=True)
