@@ -51,6 +51,26 @@ def state(**props):
     return {key: {"value": value} for key, value in props.items()}
 
 
+def video_clip(clip_id, start_time_ms, *, detection_classes=None, with_resources=True):
+    """Build a scrypted VideoClip dict as the NVR returns them."""
+    clip = {
+        "id": clip_id,
+        "videoId": clip_id,
+        "thumbnailId": clip_id,
+        "startTime": start_time_ms,
+        "duration": 30000,
+        "event": "motion",
+        "description": "Motion Event",
+        "detectionClasses": detection_classes if detection_classes is not None else ["person"],
+    }
+    if with_resources:
+        clip["resources"] = {
+            "video": {"href": f"/endpoint/@scrypted/nvr/public/{clip_id}.mp4"},
+            "thumbnail": {"href": f"/endpoint/@scrypted/nvr/public/{clip_id}.jpg"},
+        }
+    return clip
+
+
 class FakeDevice:
     """Mimics plugin_remote.DeviceProxy: local property reads, async methods."""
 
@@ -75,6 +95,9 @@ class FakeDevice:
             object.__setattr__(self, command, AsyncMock())
         object.__setattr__(self, "getTemperatureMaxK", AsyncMock(return_value=6500))
         object.__setattr__(self, "getTemperatureMinK", AsyncMock(return_value=2000))
+        object.__setattr__(self, "getVideoClips", AsyncMock(return_value=[]))
+        object.__setattr__(self, "getVideoClip", AsyncMock(return_value=object()))
+        object.__setattr__(self, "getVideoClipThumbnail", AsyncMock(return_value=object()))
 
     def __getattr__(self, name):
         device_state = self._manager.systemState.get(self.id) or {}
@@ -160,6 +183,9 @@ class FakeSDK:
                 return_value={"url": "rtsp://localhost:34567/stream"}
             ),
             createMediaObjectFromUrl=AsyncMock(return_value=object()),
+            convertMediaObjectToUrl=AsyncMock(
+                return_value="https://scrypted.local:10443/endpoint/@scrypted/nvr/converted"
+            ),
         )
 
 
@@ -197,6 +223,7 @@ DEFAULT_SYSTEM_STATE = {
             "Battery",
             "Online",
             "VideoRecorder",
+            "VideoClips",
         ],
         motionDetected=False,
         batteryLevel=80,
