@@ -130,10 +130,12 @@ class ScryptedMediaSource(MediaSource):
 
     async def _async_hls_play_media(self, rtsp_url: str) -> PlayMedia:
         """Expose an RTSP clip session as browser-playable HLS via HA's stream component."""
+        # scrypted's clip RTSP sessions are TCP; without this PyAV defaults to
+        # UDP and fails with "Invalid data found when processing input".
         stream = create_stream(
             self.hass,
             rtsp_url,
-            options={},
+            options={"rtsp_transport": "tcp"},
             dynamic_stream_settings=DynamicStreamSettings(),
         )
         stream.add_provider(HLS_PROVIDER)

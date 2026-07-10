@@ -32,6 +32,17 @@
    - The credentials reauth step currently collects the panel name/icon alongside passwords; move those UI fields into the options flow so credential updates only prompt for authentication details.
    - Once the options flow exposes these fields, remove them from the credentials step to reduce user confusion.
 
+## NVR clips media browser follow-ups
+
+- Inline clip playback works on Safari/iOS, the HA companion apps, and
+  Chromecast (native HLS), but NOT inline in Chrome/desktop: clips resolve
+  to HLS and go through HA's generic media dialog, which lacks hls.js (HA
+  core's camera media source only plays because it uses the camera entity's
+  own stream player). Universal inline playback would need native MP4 —
+  scrypted NVR can't convert clips to mp4 synchronously (only FFmpegInput),
+  so this means an async NVR mp4-export flow (kick off export on resolve,
+  poll for completion, serve through the proxy). Its own feature if wanted.
+
 ## Controllable devices follow-ups (from final review, 2026-07-08)
 
 - Reconnect discovery gap (pre-existing): `ScryptedClient.async_connect` reseeds
