@@ -1,9 +1,9 @@
 """Media player entities for Scrypted intercom-capable devices.
 
-Home Assistant's frontend cannot send microphone audio over its native WebRTC
-camera streams (it negotiates recvonly audio), so two-way audio is exposed the
-HA-native way instead: each scrypted Intercom device becomes a speaker
-media_player that plays URLs/TTS through the camera or doorbell speaker.
+Camera entities are snapshot-only (live view happens in the Scrypted NVR
+cards), so two-way audio is exposed the HA-native way instead: each scrypted
+Intercom device becomes a speaker media_player that plays URLs/TTS through the
+camera or doorbell speaker.
 """
 from __future__ import annotations
 

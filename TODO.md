@@ -76,10 +76,6 @@
   applied in the sibling scrypted checkout (branch python-sdk-event-dispatch,
   PR to koush/scrypted); tests/test_sdk_events.py pins the contract. Until the
   PR merges, deploys must ship the fixed vendor snapshot.
-- WebRTC ICE config: first session per camera uses HA's default ICE servers
-  (scrypted's TURN servers are only learned during negotiation and cached for
-  subsequent sessions). A proactive fetch would need a scrypted API exposing
-  getRTCConfiguration.
-- Browser-microphone two-way audio is blocked upstream: HA's frontend WebRTC
-  player negotiates recvonly audio. Revisit if the frontend adds mic support;
-  the scrypted side already answers sendrecv for Intercom devices.
+- Camera live streaming (RTSP + native WebRTC, formerly webrtc.py) was removed
+  on 2026-07-16 at koush's request: users should view live video through the
+  Scrypted NVR cards, so cameras are snapshot-only. Do not reintroduce it.

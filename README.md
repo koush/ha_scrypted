@@ -14,10 +14,8 @@ creates entities for discovered devices. By default only **Camera** and
 **Doorbell** device types are mirrored; pick additional Scrypted device types
 (sensors, locks, etc.) in the integration options:
 
-- **Camera** — snapshots and live streams for `VideoCamera` devices. Cameras
-  exposing `RTCSignalingChannel` (anything managed by the Scrypted WebRTC
-  plugin) stream natively over WebRTC end-to-end; others fall back to the
-  RTSP rebroadcast stream.
+- **Camera** — snapshots for `VideoCamera` devices. Live streaming is
+  intentionally not supported; use the Scrypted NVR cards for live view.
 - **Binary sensor** — motion, audio, occupancy, flood, entry, power,
   connectivity, tamper, charging.
 - **Sensor** — temperature, humidity, battery, illuminance, UV, CO2,
