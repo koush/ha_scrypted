@@ -18,7 +18,7 @@
   "integration_type": "service",
   "iot_class": "local_push",
   "requirements": [
-    "python-engineio>=4.9.0"
+    "scrypted-sdk==0.1.0"
   ],
   "ssdp": [],
   "zeroconf": []

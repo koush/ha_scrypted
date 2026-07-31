@@ -1,1 +1,0 @@
-../../../scrypted/server/python/plugin_volume.py

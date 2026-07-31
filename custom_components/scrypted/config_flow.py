@@ -26,7 +26,7 @@ from .const import (
     EXCLUDED_DEVICE_TYPES,
 )
 from .http import retrieve_token
-from .sdk_compat import ScryptedDeviceType
+from scrypted_sdk.scrypted_python.scrypted_sdk.types import ScryptedDeviceType
 
 # All scrypted device types a user might want mirrored as entities
 # (server plumbing types are not offered).

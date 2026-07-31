@@ -12,7 +12,7 @@ to a pre-fix state.
 import asyncio
 from types import SimpleNamespace
 
-from custom_components.scrypted.sdk_compat import PluginRemote, SystemManager
+from scrypted_sdk.plugin_remote import PluginRemote, SystemManager
 
 
 def make_remote_and_manager(system_state):

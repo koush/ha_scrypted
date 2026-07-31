@@ -19,7 +19,7 @@ from .entity import (
     async_setup_scrypted_platform,
     device_matches,
 )
-from .sdk_compat import ScryptedInterface
+from scrypted_sdk.scrypted_python.scrypted_sdk.types import ScryptedInterface
 
 
 @dataclass(frozen=True, kw_only=True)

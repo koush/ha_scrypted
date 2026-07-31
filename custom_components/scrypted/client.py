@@ -17,7 +17,7 @@ from .rpc_transport import (
     async_connect_sdk,
     get_base_url,
 )
-from .sdk_compat import ScryptedStatic
+from scrypted_sdk import ScryptedStatic
 
 __all__ = ["ScryptedClient", "ScryptedConnectionError", "get_base_url"]
 

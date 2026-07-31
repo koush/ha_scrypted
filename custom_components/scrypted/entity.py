@@ -24,7 +24,7 @@ from .const import (
     SIGNAL_DEVICE_UPDATE,
     SIGNAL_NEW_DEVICE,
 )
-from .sdk_compat import ScryptedInterface
+from scrypted_sdk.scrypted_python.scrypted_sdk.types import ScryptedInterface
 
 
 @dataclass(frozen=True, kw_only=True)
