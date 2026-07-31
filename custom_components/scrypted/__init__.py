@@ -329,12 +329,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         "custom",
         sidebar_title=config_entry.data[CONF_NAME],
         sidebar_icon=config_entry.data[CONF_ICON],
-        # The panel path must not contain the token: the token rotates on
-        # every entry setup, which would move the panel URL on every HA
-        # restart, breaking bookmarks and open tabs. The entry_id is stable
-        # for the lifetime of the config entry (the rotating token still
-        # authenticates the module_url and proxied requests above).
-        frontend_url_path=f"{DOMAIN}_{config_entry.entry_id}",
+        frontend_url_path=f"{DOMAIN}_{token}",
         config=panelconf,
         require_admin=False,
     )
@@ -399,7 +394,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
     hass.data[DOMAIN].pop(token)
     if not hass.data[DOMAIN]:
         hass.data.pop(DOMAIN)
-    async_remove_panel(hass, f"{DOMAIN}_{config_entry.entry_id}")
+    async_remove_panel(hass, f"{DOMAIN}_{token}")
     return True
 
 
