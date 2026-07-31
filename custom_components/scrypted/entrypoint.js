@@ -39,6 +39,15 @@ class ExamplePanel extends LitElement {
 
     static get styles() {
         return css`
+        :host {
+            /* HA 2026.8 stopped giving custom panel elements an implicit
+               height (partial-panel-resolver is now height:auto), so a
+               percentage chain collapses to a 0-height iframe. Size the
+               host against the viewport instead. */
+            display: block;
+            height: 100vh;
+            height: 100dvh;
+        }
         iframe {
             border: 0;
             width: 100%;
