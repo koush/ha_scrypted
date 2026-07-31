@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiohttp import ClientConnectorError
+from aiohttp import ClientConnectorError, ClientResponseError
 from homeassistant.components.lovelace.const import DOMAIN as LL_DOMAIN
 from homeassistant.components.lovelace.resources import (
     ResourceStorageCollection,
@@ -309,6 +309,34 @@ async def test_async_setup_entry_without_data_triggers_reauth(hass, monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_async_setup_entry_auth_failure_triggers_reauth(hass, monkeypatch):
+    """A 401 from token retrieval starts the reauth flow instead of raising."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "example",
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    err = ClientResponseError(request_info=MagicMock(), history=(), status=401)
+    monkeypatch.setattr(scrypted, "retrieve_token", AsyncMock(side_effect=err))
+    flow_init = AsyncMock(return_value={"type": "form"})
+    monkeypatch.setattr(hass.config_entries.flow, "async_init", flow_init)
+    result = await scrypted.async_setup_entry(hass, entry)
+    await hass.async_block_till_done()
+    assert result is False
+    assert flow_init.await_count == 1
+    assert flow_init.call_args.kwargs["context"]["source"] == SOURCE_REAUTH
+
+
+@pytest.mark.asyncio
 async def test_update_listener_moves_option_keys(hass, monkeypatch):
     """Test case for test_update_listener_moves_option_keys."""
     entry = MockConfigEntry(
@@ -488,8 +516,8 @@ async def test_async_unload_entry(hass, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_panel_registered_with_token(hass, monkeypatch):
-    """Test that panel is registered using token in the URL path."""
+async def test_panel_registered_with_stable_path(hass, monkeypatch):
+    """Test that panel is registered at a stable entry_id-based URL path."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -513,12 +541,12 @@ async def test_panel_registered_with_token(hass, monkeypatch):
     monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
     result = await scrypted.async_setup_entry(hass, entry)
     assert result is True
-    assert panel_kwargs["frontend_url_path"] == f"{DOMAIN}_token"
+    assert panel_kwargs["frontend_url_path"] == f"{DOMAIN}_{entry.entry_id}"
 
 
 @pytest.mark.asyncio
-async def test_panel_unregistered_with_token(hass, monkeypatch):
-    """Test that panel is unregistered using the same token-based URL path."""
+async def test_panel_unregistered_with_stable_path(hass, monkeypatch):
+    """Test that panel is unregistered using the same entry_id-based URL path."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -540,7 +568,7 @@ async def test_panel_unregistered_with_token(hass, monkeypatch):
     )
     result = await scrypted.async_unload_entry(hass, entry)
     assert result is True
-    assert removed_panels == [f"{DOMAIN}_token"]
+    assert removed_panels == [f"{DOMAIN}_{entry.entry_id}"]
 
 
 @pytest.mark.asyncio
@@ -548,7 +576,7 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
     """Test that panel can be reloaded without 'Overwriting panel' errors.
 
     This verifies that both registration and unregistration use the same
-    token-based URL path, allowing clean reloads.
+    stable entry_id-based URL path, allowing clean reloads.
     """
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -587,12 +615,12 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
     # First setup
     result = await scrypted.async_setup_entry(hass, entry)
     assert result is True
-    assert f"{DOMAIN}_token" in registered_panels
+    assert f"{DOMAIN}_{entry.entry_id}" in registered_panels
 
     # Unload
     result = await scrypted.async_unload_entry(hass, entry)
     assert result is True
-    assert f"{DOMAIN}_token" not in registered_panels
+    assert f"{DOMAIN}_{entry.entry_id}" not in registered_panels
 
     # Re-add token mapping for second setup
     hass.data.setdefault(DOMAIN, {})
@@ -600,4 +628,4 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
     # Second setup (simulating reload) - should not raise ValueError
     result = await scrypted.async_setup_entry(hass, entry)
     assert result is True
-    assert f"{DOMAIN}_token" in registered_panels
+    assert f"{DOMAIN}_{entry.entry_id}" in registered_panels
