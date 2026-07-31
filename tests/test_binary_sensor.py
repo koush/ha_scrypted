@@ -38,18 +38,18 @@ async def test_motion_sensor_created_and_updates(
 ):
     await setup_entry(hass)
 
-    state = hass.states.get("binary_sensor.front_door_cam_motion")
+    state = hass.states.get("binary_sensor.porch_front_door_cam_motion")
     assert state is not None
     assert state.state == "off"
 
     fake_sdk.systemManager.set_property("cam1", "motionDetected", True)
     await hass.async_block_till_done()
-    assert hass.states.get("binary_sensor.front_door_cam_motion").state == "on"
+    assert hass.states.get("binary_sensor.porch_front_door_cam_motion").state == "on"
 
 
 async def test_flood_sensor_created(hass, fake_sdk, enable_custom_integrations):
     await setup_entry(hass)
-    state = hass.states.get("binary_sensor.basement_leak_flooded")
+    state = hass.states.get("binary_sensor.basement_basement_leak_flooded")
     assert state is not None
     assert state.state == "off"
 
@@ -86,7 +86,7 @@ async def test_offline_device_unavailable(hass, fake_sdk, enable_custom_integrat
     fake_sdk.systemManager.set_property("cam1", "online", False)
     await hass.async_block_till_done()
     assert (
-        hass.states.get("binary_sensor.front_door_cam_motion").state == "unavailable"
+        hass.states.get("binary_sensor.porch_front_door_cam_motion").state == "unavailable"
     )
 
 

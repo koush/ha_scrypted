@@ -44,12 +44,12 @@ async def test_device_sensors_created(hass, fake_sdk, enable_custom_integrations
 
     await setup_entry(hass)
 
-    temp = hass.states.get("sensor.basement_leak_temperature")
+    temp = hass.states.get("sensor.basement_basement_leak_temperature")
     assert temp is not None
     assert temp.state == "21.5"
     assert temp.attributes["device_class"] == "temperature"
 
-    battery = hass.states.get("sensor.front_door_cam_battery")
+    battery = hass.states.get("sensor.porch_front_door_cam_battery")
     assert battery is not None
     assert battery.state == "80"
 
@@ -60,7 +60,7 @@ async def test_sensor_updates_on_event(hass, fake_sdk, enable_custom_integration
     await setup_entry(hass)
     fake_sdk.systemManager.set_property("leak1", "temperature", 25.0)
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.basement_leak_temperature").state == "25.0"
+    assert hass.states.get("sensor.basement_basement_leak_temperature").state == "25.0"
 
 
 def test_sensor_native_value_none(fake_sdk):

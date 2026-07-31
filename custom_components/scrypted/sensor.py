@@ -11,12 +11,12 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
-    CONCENTRATION_PARTS_PER_MILLION,
     CONF_HOST,
     LIGHT_LUX,
     PERCENTAGE,
     EntityCategory,
+    UnitOfDensity,
+    UnitOfRatio,
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
@@ -98,7 +98,7 @@ SENSORS: tuple[ScryptedSensorDescription, ...] = (
         interface="CO2Sensor",
         state_property="co2ppm",
         device_class=SensorDeviceClass.CO2,
-        native_unit_of_measurement=CONCENTRATION_PARTS_PER_MILLION,
+        native_unit_of_measurement=UnitOfRatio.PARTS_PER_MILLION,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     ScryptedSensorDescription(
@@ -107,7 +107,7 @@ SENSORS: tuple[ScryptedSensorDescription, ...] = (
         interface="PM25Sensor",
         state_property="pm25Density",
         device_class=SensorDeviceClass.PM25,
-        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        native_unit_of_measurement=UnitOfDensity.MICROGRAMS_PER_CUBIC_METER,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     ScryptedSensorDescription(
@@ -116,7 +116,7 @@ SENSORS: tuple[ScryptedSensorDescription, ...] = (
         interface="PM10Sensor",
         state_property="pm10Density",
         device_class=SensorDeviceClass.PM10,
-        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        native_unit_of_measurement=UnitOfDensity.MICROGRAMS_PER_CUBIC_METER,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     ScryptedSensorDescription(
@@ -125,7 +125,7 @@ SENSORS: tuple[ScryptedSensorDescription, ...] = (
         interface="VOCSensor",
         state_property="vocDensity",
         device_class=SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS,
-        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        native_unit_of_measurement=UnitOfDensity.MICROGRAMS_PER_CUBIC_METER,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     ScryptedSensorDescription(
@@ -133,7 +133,7 @@ SENSORS: tuple[ScryptedSensorDescription, ...] = (
         name="NOx",
         interface="NOXSensor",
         state_property="noxDensity",
-        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        native_unit_of_measurement=UnitOfDensity.MICROGRAMS_PER_CUBIC_METER,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     ScryptedSensorDescription(

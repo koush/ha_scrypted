@@ -16,7 +16,7 @@ async def test_intercom_media_player_created(
     assert state is not None
     assert state.state == "idle"
     # cam1 has no Intercom interface -> no media player
-    assert hass.states.get("media_player.front_door_cam_speaker") is None
+    assert hass.states.get("media_player.porch_front_door_cam_speaker") is None
 
 
 async def test_play_media_url_starts_intercom(

@@ -5,7 +5,7 @@ from tests.test_binary_sensor import setup_entry
 async def test_object_detection_event(hass, fake_sdk, enable_custom_integrations):
     await setup_entry(hass)
 
-    state = hass.states.get("event.front_door_cam_object_detected")
+    state = hass.states.get("event.porch_front_door_cam_object_detected")
     assert state is not None
     assert "person" in state.attributes["event_types"]
 
@@ -21,7 +21,7 @@ async def test_object_detection_event(hass, fake_sdk, enable_custom_integrations
     )
     await hass.async_block_till_done()
 
-    state = hass.states.get("event.front_door_cam_object_detected")
+    state = hass.states.get("event.porch_front_door_cam_object_detected")
     assert state.attributes["event_type"] == "person"
     assert state.attributes["score"] == 0.92
 
@@ -36,7 +36,7 @@ async def test_unknown_detection_class_extends_event_types(
         {"detections": [{"className": "raccoon", "score": 0.5}], "timestamp": 1},
     )
     await hass.async_block_till_done()
-    state = hass.states.get("event.front_door_cam_object_detected")
+    state = hass.states.get("event.porch_front_door_cam_object_detected")
     assert state.attributes["event_type"] == "raccoon"
 
 
@@ -66,7 +66,7 @@ async def test_object_types_failure_skips_entity(
         RuntimeError("nope")
     )
     await setup_entry(hass)
-    assert hass.states.get("event.front_door_cam_object_detected") is None
+    assert hass.states.get("event.porch_front_door_cam_object_detected") is None
 
 
 async def test_motion_only_detector_skips_entity(
@@ -77,7 +77,7 @@ async def test_motion_only_detector_skips_entity(
         "classes": ["motion"]
     }
     await setup_entry(hass)
-    assert hass.states.get("event.front_door_cam_object_detected") is None
+    assert hass.states.get("event.porch_front_door_cam_object_detected") is None
 
 
 async def test_motion_class_excluded_from_event_types(
@@ -87,7 +87,7 @@ async def test_motion_class_excluded_from_event_types(
         "classes": ["motion", "person", "car"]
     }
     await setup_entry(hass)
-    state = hass.states.get("event.front_door_cam_object_detected")
+    state = hass.states.get("event.porch_front_door_cam_object_detected")
     assert state.attributes["event_types"] == ["person", "car"]
 
 
@@ -104,7 +104,7 @@ async def test_motion_detections_do_not_fire_events(
         {"detections": [{"className": "motion", "score": 1}], "timestamp": 1},
     )
     await hass.async_block_till_done()
-    state = hass.states.get("event.front_door_cam_object_detected")
+    state = hass.states.get("event.porch_front_door_cam_object_detected")
     assert state.state == "unknown"
     assert "motion" not in state.attributes["event_types"]
 
@@ -121,7 +121,7 @@ async def test_motion_detections_do_not_fire_events(
         },
     )
     await hass.async_block_till_done()
-    state = hass.states.get("event.front_door_cam_object_detected")
+    state = hass.states.get("event.porch_front_door_cam_object_detected")
     assert state.attributes["event_type"] == "person"
     assert "motion" not in state.attributes["event_types"]
 
@@ -134,7 +134,7 @@ async def test_detection_without_class_ignored(
         "cam1", "ObjectDetector", {"detections": [{"score": 1.0}], "timestamp": 1}
     )
     await hass.async_block_till_done()
-    state = hass.states.get("event.front_door_cam_object_detected")
+    state = hass.states.get("event.porch_front_door_cam_object_detected")
     assert state.state == "unknown"
 
 

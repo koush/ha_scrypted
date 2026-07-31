@@ -6,13 +6,13 @@ from tests.test_binary_sensor import setup_entry
 
 async def test_camera_created(hass, fake_sdk, enable_custom_integrations):
     await setup_entry(hass)
-    state = hass.states.get("camera.front_door_cam")
+    state = hass.states.get("camera.porch_front_door_cam")
     assert state is not None
 
 
 async def test_camera_snapshot(hass, fake_sdk, enable_custom_integrations):
     await setup_entry(hass)
-    image = await async_get_image(hass, "camera.front_door_cam")
+    image = await async_get_image(hass, "camera.porch_front_door_cam")
     assert image.content == b"fake-jpeg"
     # Snapshot prefers takePicture when Camera interface present
     fake_sdk.systemManager.getDeviceById("cam1").takePicture.assert_awaited()
@@ -25,7 +25,7 @@ async def test_camera_has_no_stream_support(
     from homeassistant.components.camera import get_camera_from_entity_id
 
     await setup_entry(hass)
-    cam = get_camera_from_entity_id(hass, "camera.front_door_cam")
+    cam = get_camera_from_entity_id(hass, "camera.porch_front_door_cam")
     assert not cam.supported_features & CameraEntityFeature.STREAM
     assert await cam.stream_source() is None
     assert cam._supports_native_async_webrtc is False
@@ -35,7 +35,7 @@ async def test_camera_edge_cases(hass, fake_sdk, enable_custom_integrations):
     await setup_entry(hass)
     from homeassistant.components.camera import get_camera_from_entity_id
 
-    cam = get_camera_from_entity_id(hass, "camera.front_door_cam")
+    cam = get_camera_from_entity_id(hass, "camera.porch_front_door_cam")
     bell = get_camera_from_entity_id(hass, "camera.doorbell")
 
     assert cam.is_recording is True
