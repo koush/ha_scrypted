@@ -50,7 +50,9 @@
         "description": "Choose whether Scrypted should automatically register and manage the Lovelace resources required for its NVR cards. These files are sizable, so you can opt out if you prefer to manage them manually.",
         "data": {
           "auto_register_resources": "Automatically register Scrypted NVR Lovelace resources",
-          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR."
+          "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR.",
+          "enable_entities": "Create entities for Scrypted devices (cameras, sensors, events)",
+          "device_types": "Scrypted device types to create entities for"
         }
       }
     }

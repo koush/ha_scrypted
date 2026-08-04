@@ -1,5 +1,6 @@
 """The Scrypted integration."""
 
+from dataclasses import dataclass
 import logging
 from typing import Any
 
@@ -19,17 +20,43 @@ from homeassistant.components.lovelace.resources import (
 )
 from homeassistant.components.persistent_notification import async_create
 from homeassistant.config_entries import SOURCE_IMPORT, SOURCE_REAUTH, ConfigEntry
-from homeassistant.const import CONF_ICON, CONF_ID, CONF_NAME, CONF_URL, Platform
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_ICON,
+    CONF_ID,
+    CONF_NAME,
+    CONF_URL,
+    Platform,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_AUTO_REGISTER_RESOURCES, CONF_SCRYPTED_NVR, DOMAIN
+from .hub import ScryptedClient, ScryptedConnectionError, get_base_url
+from .const import (
+    CONF_AUTO_REGISTER_RESOURCES,
+    CONF_DEVICE_TYPES,
+    CONF_ENABLE_ENTITIES,
+    CONF_SCRYPTED_NVR,
+    DEFAULT_DEVICE_TYPES,
+    DOMAIN,
+)
 from .http import ScryptedView, retrieve_token
 
+
+@dataclass
+class ScryptedRuntimeData:
+    """Objects for this config entry's lifetime."""
+
+    token: str
+    client: ScryptedClient | None
+
+
 PLATFORMS = [
-    Platform.SENSOR
+    Platform.CAMERA,
+    Platform.SENSOR,
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +64,8 @@ _RESOURCE_TRACKER = f"{DOMAIN}_lovelace_resources"
 _OPTION_DEFAULTS = {
     CONF_AUTO_REGISTER_RESOURCES: False,
     CONF_SCRYPTED_NVR: False,
+    CONF_ENABLE_ENTITIES: True,
+    CONF_DEVICE_TYPES: DEFAULT_DEVICE_TYPES,
 }
 
 
@@ -71,7 +100,6 @@ async def _async_register_lovelace_resource(
     tracker: dict[str, set[str]] = hass.data.setdefault(_RESOURCE_TRACKER, {})
     entry_tracker = tracker.setdefault(entry_id, set())
 
-    created_resource = False
     for resource_type, resource_url in _get_card_resource_definitions(token):
         # Skip creation when Home Assistant already has an entry for this URL.
         try:
@@ -96,7 +124,6 @@ async def _async_register_lovelace_resource(
                 {CONF_RESOURCE_TYPE_WS: resource_type, CONF_URL: resource_url}
             )
             entry_tracker.add(resource_url)
-            created_resource = True
             _LOGGER.debug(
                 "Registered Scrypted Lovelace resource (resource ID %s) for entry %s",
                 data.get(CONF_ID),
@@ -250,6 +277,29 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         config_entry.add_update_listener(_async_update_listener)
     )
 
+    client: ScryptedClient | None = None
+    if config_entry.options.get(CONF_ENABLE_ENTITIES, True):
+        client = ScryptedClient(hass, config_entry)
+        try:
+            await client.async_connect()
+        except ScryptedConnectionError as err:
+            # Token retrieval succeeded so the server is up; engine.io failing
+            # is unexpected — retry the whole entry setup.
+            raise ConfigEntryNotReady(
+                f"Scrypted engine.io connect failed: {err}"
+            ) from err
+
+        device_registry = dr.async_get(hass)
+        device_registry.async_get_or_create(
+            config_entry_id=config_entry.entry_id,
+            identifiers={(DOMAIN, config_entry.entry_id)},
+            manufacturer="Scrypted",
+            name=config_entry.data[CONF_NAME],
+            configuration_url=get_base_url(config_entry.data[CONF_HOST]),
+        )
+
+    config_entry.runtime_data = ScryptedRuntimeData(token=token, client=client)
+
     if config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES):
         await _async_register_lovelace_resource(hass, token, config_entry.entry_id)
 
@@ -281,8 +331,48 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     return True
 
 
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, config_entry: ConfigEntry, device_entry: dr.DeviceEntry
+) -> bool:
+    """Allow removing a device from the UI once scrypted stops exposing it.
+
+    The hub device and any device that would still produce entities (present
+    in the scrypted system state with an allowlisted type) stay protected.
+    """
+    client = config_entry.runtime_data.client
+    prefix = f"{config_entry.entry_id}_"
+    allowed_types = config_entry.options.get(CONF_DEVICE_TYPES, DEFAULT_DEVICE_TYPES)
+
+    for domain, identifier in device_entry.identifiers:
+        if domain != DOMAIN:
+            continue
+        if identifier == config_entry.entry_id:
+            # The hub device representing the scrypted server itself.
+            return False
+        if not identifier.startswith(prefix):
+            continue
+        device_id = identifier.removeprefix(prefix)
+        if client is None or client.sdk is None:
+            continue
+        device = client.sdk.systemManager.getDeviceById(device_id)
+        if device is not None and (device.type or "Unknown") in allowed_types:
+            # Still exposed by the integration; deleting it would only have
+            # it reappear on the next event or reload.
+            return False
+    return True
+
+
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        config_entry, PLATFORMS
+    )
+    if not unload_ok:
+        return False
+
+    if (data := getattr(config_entry, "runtime_data", None)) and data.client:
+        await data.client.async_disconnect()
+
     token = next(
         token
         for token, entry in hass.data[DOMAIN].items()

@@ -1,7 +1,7 @@
 {
   "domain": "scrypted",
   "name": "Scrypted",
-  "version": "0.0.10",
+  "version": "0.1.0",
   "codeowners": ["@koush"],
   "config_flow": true,
   "dependencies": ["http", "frontend"],
@@ -10,7 +10,7 @@
   "homekit": {},
   "integration_type": "service",
   "iot_class": "local_push",
-  "requirements": [],
+  "requirements": ["scrypted-sdk==0.1.1"],
   "ssdp": [],
   "zeroconf": []
 }

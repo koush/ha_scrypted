@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant import config_entries
@@ -20,6 +20,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.scrypted import config_flow
 from custom_components.scrypted.const import (
     CONF_AUTO_REGISTER_RESOURCES,
+    CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
@@ -56,42 +57,42 @@ async def test_user_flow_creates_entry(hass):
 
 
 @pytest.mark.asyncio
-async def test_user_flow_invalid_credentials_shows_error(hass, monkeypatch):
+async def test_user_flow_invalid_credentials_shows_error(hass):
     """Test case for test_user_flow_invalid_credentials_shows_error."""
     async def _raise(*args, **kwargs):
         raise ValueError
 
-    monkeypatch.setattr(config_flow, "retrieve_token", _raise)
-    init_result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    result = await hass.config_entries.flow.async_configure(
-        init_result["flow_id"], USER_INPUT
-    )
+    with patch.object(config_flow, "retrieve_token", _raise):
+        init_result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            init_result["flow_id"], USER_INPUT
+        )
     assert result["type"] == FlowResultType.FORM
     assert result["errors"]["base"] == "invalid_host_or_credentials"
 
 
 @pytest.mark.asyncio
-async def test_reauth_credentials_invalid_sets_error(hass, monkeypatch):
+async def test_reauth_credentials_invalid_sets_error(hass):
     """Test case for test_reauth_credentials_invalid_sets_error."""
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
     entry.add_to_hass(hass)
     context_data = {**entry.data, CONF_PASSWORD: "old"}
     async def _raise(*args, **kwargs):
         raise ValueError
-    monkeypatch.setattr(config_flow, "retrieve_token", _raise)
-    init_result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={
-            "source": config_entries.SOURCE_REAUTH,
-            "entry_id": entry.entry_id,
-            "data": context_data,
-        },
-    )
-    result = await hass.config_entries.flow.async_configure(
-        init_result["flow_id"], CREDENTIALS_INPUT
-    )
+    with patch.object(config_flow, "retrieve_token", _raise):
+        init_result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_REAUTH,
+                "entry_id": entry.entry_id,
+                "data": context_data,
+            },
+        )
+        result = await hass.config_entries.flow.async_configure(
+            init_result["flow_id"], CREDENTIALS_INPUT
+        )
     assert result["type"] == FlowResultType.FORM
     assert result["errors"]["base"] == "invalid_host_or_credentials"
 
@@ -137,25 +138,25 @@ async def test_reauth_without_password_shows_upgrade_step(hass):
 
 
 @pytest.mark.asyncio
-async def test_reauth_credentials_triggers_reload(hass, monkeypatch):
+async def test_reauth_credentials_triggers_reload(hass):
     """Test case for test_reauth_credentials_triggers_reload."""
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
     entry.add_to_hass(hass)
     reload_mock = AsyncMock()
-    monkeypatch.setattr(hass.config_entries, "async_reload", reload_mock)
     context_data = {**entry.data, CONF_PASSWORD: "old"}
-    init_result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={
-            "source": config_entries.SOURCE_REAUTH,
-            "entry_id": entry.entry_id,
-            "data": context_data,
-        },
-    )
-    assert init_result["step_id"] == "credentials"
-    result = await hass.config_entries.flow.async_configure(
-        init_result["flow_id"], CREDENTIALS_INPUT
-    )
+    with patch.object(hass.config_entries, "async_reload", reload_mock):
+        init_result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_REAUTH,
+                "entry_id": entry.entry_id,
+                "data": context_data,
+            },
+        )
+        assert init_result["step_id"] == "credentials"
+        result = await hass.config_entries.flow.async_configure(
+            init_result["flow_id"], CREDENTIALS_INPUT
+        )
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "success"
     reload_mock.assert_awaited_once_with(entry.entry_id)
@@ -241,9 +242,11 @@ async def test_options_flow_respects_existing_options(hass):
     entry.add_to_hass(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
     schema_keys = list(result["data_schema"].schema.keys())
-    auto_field, nvr_field = schema_keys
+    auto_field, nvr_field, entities_field, types_field = schema_keys
     assert auto_field.default() is False
     assert nvr_field.default() is False
+    assert entities_field.default() is True
+    assert types_field.default() == ["Camera", "Doorbell"]
 
 
 @pytest.mark.asyncio
@@ -299,3 +302,28 @@ async def test_validate_input_missing_field_returns_false(hass):
     flow.hass = hass
     data = {CONF_HOST: "example", CONF_ICON: "mdi:test"}
     assert await flow.validate_input(data) is False
+
+
+async def test_options_flow_includes_enable_entities(hass):
+    """Options flow exposes and persists the enable_entities flag."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"host": "1.2.3.4", "username": "u", "password": "p", "name": "Scrypted", "icon": "mdi:memory"},
+        options={CONF_AUTO_REGISTER_RESOURCES: False, CONF_SCRYPTED_NVR: False, CONF_ENABLE_ENTITIES: True},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == "form"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
+        },
+    )
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_ENABLE_ENTITIES] is False

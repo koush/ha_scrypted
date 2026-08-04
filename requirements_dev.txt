@@ -1,5 +1,9 @@
-homeassistant>=2023.6.2
+homeassistant>=2026.7.0
 pytest
 pytest-asyncio
 pytest-cov
 pytest-homeassistant-custom-component
+scrypted-sdk==0.1.1
+home-assistant-frontend
+PyTurboJPEG
+av
