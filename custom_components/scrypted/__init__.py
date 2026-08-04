@@ -34,7 +34,8 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-from .hub import ScryptedClient, ScryptedConnectionError, get_base_url
+from .hub import ScryptedClient
+from .sdk import get_base_url
 from .const import (
     CONF_AUTO_REGISTER_RESOURCES,
     CONF_DEVICE_TYPES,
@@ -44,6 +45,7 @@ from .const import (
     DOMAIN,
 )
 from .http import ScryptedView, retrieve_token
+from scrypted_sdk import ScryptedConnectionError
 
 
 @dataclass

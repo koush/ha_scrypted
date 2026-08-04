@@ -31,7 +31,7 @@ from custom_components.scrypted.const import (
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
-from custom_components.scrypted.hub import ScryptedConnectionError
+from scrypted_sdk import ScryptedConnectionError
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
