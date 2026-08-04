@@ -10,6 +10,8 @@ from homeassistant import loader
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
+from pytest_homeassistant_custom_component.common import MockConfigEntry  # noqa: E402
+
 import custom_components.scrypted as scrypted  # noqa: E402
 from custom_components.scrypted import config_flow, hub  # noqa: E402
 from custom_components.scrypted.const import (  # noqa: E402
@@ -19,7 +21,7 @@ from custom_components.scrypted.const import (  # noqa: E402
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
-from pytest_homeassistant_custom_component.common import MockConfigEntry  # noqa: E402
+
 
 @pytest.fixture(autouse=True)
 def _register_scrypted_flow(hass):

@@ -1,19 +1,18 @@
 """The Scrypted integration."""
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from aiohttp import ClientConnectorError, ClientResponseError
-
 from homeassistant.components.frontend import (
     async_register_built_in_panel,
     async_remove_panel,
 )
 from homeassistant.components.lovelace.const import (
     CONF_RESOURCE_TYPE_WS,
-    DOMAIN as LL_DOMAIN,
 )
+from homeassistant.components.lovelace.const import DOMAIN as LL_DOMAIN
 from homeassistant.components.lovelace.resources import (
     ResourceStorageCollection,
     ResourceYAMLCollection,
@@ -33,9 +32,8 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
+from scrypted_sdk import ScryptedConnectionError
 
-from .hub import ScryptedClient
-from .sdk import get_base_url
 from .const import (
     CONF_AUTO_REGISTER_RESOURCES,
     CONF_DEVICE_TYPES,
@@ -45,7 +43,8 @@ from .const import (
     DOMAIN,
 )
 from .http import ScryptedView, retrieve_token
-from scrypted_sdk import ScryptedConnectionError
+from .hub import ScryptedClient
+from .sdk import get_base_url
 
 
 @dataclass

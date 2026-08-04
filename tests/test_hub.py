@@ -7,12 +7,12 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.scrypted import hub as hub_module
-from custom_components.scrypted.hub import ScryptedClient
 from custom_components.scrypted.const import (
     DOMAIN,
     SIGNAL_DEVICE_UPDATE,
     SIGNAL_NEW_DEVICE,
 )
+from custom_components.scrypted.hub import ScryptedClient
 
 
 @pytest.fixture

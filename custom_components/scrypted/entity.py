@@ -13,8 +13,8 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from scrypted_sdk import ScryptedInterface
 
-from .hub import ScryptedClient
 from .const import (
     CONF_DEVICE_TYPES,
     DEFAULT_DEVICE_TYPES,
@@ -24,7 +24,7 @@ from .const import (
     SIGNAL_DEVICE_UPDATE,
     SIGNAL_NEW_DEVICE,
 )
-from scrypted_sdk import ScryptedInterface
+from .hub import ScryptedClient
 
 
 @dataclass(frozen=True, kw_only=True)

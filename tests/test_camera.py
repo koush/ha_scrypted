@@ -4,7 +4,6 @@ from homeassistant.components.camera import (
     async_get_image,
     get_camera_from_entity_id,
 )
-
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from custom_components.scrypted.const import SIGNAL_CONNECTION

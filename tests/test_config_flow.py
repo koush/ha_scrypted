@@ -14,7 +14,6 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 from homeassistant.data_entry_flow import FlowResultType
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.scrypted import config_flow
@@ -24,7 +23,6 @@ from custom_components.scrypted.const import (
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
-
 
 CREDENTIALS_INPUT = {
     CONF_HOST: "example",

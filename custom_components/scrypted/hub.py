@@ -9,10 +9,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from scrypted_sdk import EioRpcTransport, ScryptedConnectionError, ScryptedStatic
 
 from .const import SIGNAL_CONNECTION, SIGNAL_DEVICE_UPDATE, SIGNAL_NEW_DEVICE
 from .sdk import async_connect_sdk
-from scrypted_sdk import EioRpcTransport, ScryptedConnectionError, ScryptedStatic
 
 __all__ = ["ScryptedClient"]
 
