@@ -6,13 +6,13 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiohttp import ClientConnectorError
+from aiohttp import ClientConnectorError, ClientResponseError
 from homeassistant.components.lovelace.const import DOMAIN as LL_DOMAIN
 from homeassistant.components.lovelace.resources import (
     ResourceStorageCollection,
     ResourceYAMLCollection,
 )
-from homeassistant.config_entries import SOURCE_REAUTH
+from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.const import (
     CONF_HOST,
     CONF_ICON,
@@ -22,6 +22,7 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 
 import custom_components.scrypted as scrypted
 from custom_components.scrypted.const import (
@@ -30,8 +31,11 @@ from custom_components.scrypted.const import (
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
+from custom_components.scrypted.hub import ScryptedConnectionError
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from tests.test_binary_sensor import setup_entry
 
 
 class FakeStorageResources(ResourceStorageCollection):
@@ -679,8 +683,6 @@ async def test_setup_entry_entities_disabled(hass, enable_custom_integrations):
 
 async def test_setup_entry_auth_error_starts_reauth(hass, monkeypatch):
     """HTTP 401 from token retrieval starts the reauth flow."""
-    from aiohttp import ClientResponseError
-
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={CONF_HOST: "example", CONF_USERNAME: "u"},
@@ -711,10 +713,6 @@ async def test_setup_entry_not_ready_on_engineio_failure(
     hass, monkeypatch, enable_custom_integrations
 ):
     """engine.io connect failure raises ConfigEntryNotReady (setup retry)."""
-    from homeassistant.config_entries import ConfigEntryState
-
-    from custom_components.scrypted.hub import ScryptedConnectionError
-
     async def _fail(self):
         raise ScryptedConnectionError("nope")
 
@@ -753,10 +751,6 @@ async def test_unload_entry_fails_when_platforms_fail(hass, monkeypatch):
 
 async def test_remove_config_entry_device(hass, fake_sdk, enable_custom_integrations):
     """Devices are only removable once scrypted stops exposing them."""
-    from homeassistant.helpers import device_registry as dr
-
-    from tests.test_binary_sensor import setup_entry
-
     entry = await setup_entry(hass)
     device_registry = dr.async_get(hass)
     hub = device_registry.async_get_device({(DOMAIN, entry.entry_id)})
@@ -781,13 +775,9 @@ async def test_remove_config_entry_device_entities_disabled(
     hass, fake_sdk, enable_custom_integrations
 ):
     """With entities disabled, any leftover device is removable."""
-    from types import SimpleNamespace as NS
-
-    from homeassistant.helpers import device_registry as dr
-
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "x"})
     entry.add_to_hass(hass)
-    entry.runtime_data = NS(client=None)
+    entry.runtime_data = SimpleNamespace(client=None)
     device_entry = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={

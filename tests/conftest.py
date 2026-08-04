@@ -1,5 +1,6 @@
 """Shared pytest fixtures for Scrypted tests."""
 
+import copy
 import importlib
 from types import SimpleNamespace
 
@@ -9,7 +10,7 @@ from homeassistant import loader
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
 import custom_components.scrypted as scrypted  # noqa: E402
-from custom_components.scrypted import config_flow  # noqa: E402
+from custom_components.scrypted import config_flow, hub  # noqa: E402
 from custom_components.scrypted.const import DOMAIN  # noqa: E402
 
 @pytest.fixture(autouse=True)
@@ -349,8 +350,6 @@ DEFAULT_SYSTEM_STATE = {
 @pytest.fixture
 def system_state():
     """Deep-ish copy so tests can mutate freely."""
-    import copy
-
     return copy.deepcopy(DEFAULT_SYSTEM_STATE)
 
 
@@ -362,12 +361,10 @@ def fake_sdk(system_state):
 @pytest.fixture(autouse=True)
 def mock_connect_sdk(monkeypatch, fake_sdk):
     """All tests connect to the fake SDK unless they re-patch."""
-    from custom_components.scrypted import hub as hub_module
-
     transport = FakeTransport()
 
     async def _fake_connect(hass, host, username, password, plugin_id="@scrypted/core"):
         return transport, fake_sdk
 
-    monkeypatch.setattr(hub_module, "async_connect_sdk", _fake_connect)
+    monkeypatch.setattr(hub, "async_connect_sdk", _fake_connect)
     return SimpleNamespace(transport=transport, sdk=fake_sdk)

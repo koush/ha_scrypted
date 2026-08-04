@@ -1,5 +1,9 @@
 """Tests for scrypted cameras (snapshot-only by design)."""
-from homeassistant.components.camera import CameraEntityFeature, async_get_image
+from homeassistant.components.camera import (
+    CameraEntityFeature,
+    async_get_image,
+    get_camera_from_entity_id,
+)
 
 from tests.test_binary_sensor import setup_entry
 
@@ -22,8 +26,6 @@ async def test_camera_has_no_stream_support(
     hass, fake_sdk, enable_custom_integrations
 ):
     """Live streaming is intentionally unsupported; NVR cards handle live view."""
-    from homeassistant.components.camera import get_camera_from_entity_id
-
     await setup_entry(hass)
     cam = get_camera_from_entity_id(hass, "camera.porch_front_door_cam")
     assert not cam.supported_features & CameraEntityFeature.STREAM
@@ -33,8 +35,6 @@ async def test_camera_has_no_stream_support(
 
 async def test_camera_edge_cases(hass, fake_sdk, enable_custom_integrations):
     await setup_entry(hass)
-    from homeassistant.components.camera import get_camera_from_entity_id
-
     cam = get_camera_from_entity_id(hass, "camera.porch_front_door_cam")
     bell = get_camera_from_entity_id(hass, "camera.doorbell")
 

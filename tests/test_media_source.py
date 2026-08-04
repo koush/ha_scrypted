@@ -10,6 +10,7 @@ from homeassistant.components.stream import FORMAT_CONTENT_TYPE, HLS_PROVIDER
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 
+import custom_components.scrypted as scrypted
 from custom_components.scrypted.const import (
     CONF_AUTO_REGISTER_RESOURCES,
     CONF_DEVICE_TYPES,
@@ -260,8 +261,6 @@ async def test_entry_token_missing_raises_browse_error(
 async def test_browse_root_with_multiple_entries_lists_entries(
     hass, fake_sdk, enable_custom_integrations, monkeypatch
 ):
-    import custom_components.scrypted as scrypted
-
     entry1 = await setup_media_source(hass)
 
     async def _fake_retrieve(data, session):

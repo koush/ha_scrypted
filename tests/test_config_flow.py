@@ -20,6 +20,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.scrypted import config_flow
 from custom_components.scrypted.const import (
     CONF_AUTO_REGISTER_RESOURCES,
+    CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
@@ -305,14 +306,6 @@ async def test_validate_input_missing_field_returns_false(hass):
 
 async def test_options_flow_includes_enable_entities(hass):
     """Options flow exposes and persists the enable_entities flag."""
-    from custom_components.scrypted.const import (
-        CONF_AUTO_REGISTER_RESOURCES,
-        CONF_ENABLE_ENTITIES,
-        CONF_SCRYPTED_NVR,
-        DOMAIN,
-    )
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
-
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"host": "1.2.3.4", "username": "u", "password": "p", "name": "Scrypted", "icon": "mdi:memory"},

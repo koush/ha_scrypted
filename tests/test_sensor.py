@@ -11,6 +11,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.scrypted import sensor
 from custom_components.scrypted.const import DOMAIN
+from custom_components.scrypted.sensor import SENSORS, ScryptedSensor
+from tests.test_binary_sensor import setup_entry
 
 
 def test_sensor_attributes():
@@ -40,8 +42,6 @@ async def test_async_setup_entry_adds_token_sensor(hass):
 
 
 async def test_device_sensors_created(hass, fake_sdk, enable_custom_integrations):
-    from tests.test_binary_sensor import setup_entry
-
     await setup_entry(hass)
 
     temp = hass.states.get("sensor.basement_basement_leak_temperature")
@@ -55,8 +55,6 @@ async def test_device_sensors_created(hass, fake_sdk, enable_custom_integrations
 
 
 async def test_sensor_updates_on_event(hass, fake_sdk, enable_custom_integrations):
-    from tests.test_binary_sensor import setup_entry
-
     await setup_entry(hass)
     fake_sdk.systemManager.set_property("leak1", "temperature", 25.0)
     await hass.async_block_till_done()
@@ -64,8 +62,6 @@ async def test_sensor_updates_on_event(hass, fake_sdk, enable_custom_integration
 
 
 def test_sensor_native_value_none(fake_sdk):
-    from custom_components.scrypted.sensor import SENSORS, ScryptedSensor
-
     client = SimpleNamespace(sdk=fake_sdk, connected=True)
     entry = MockConfigEntry(domain=DOMAIN)
     description = next(d for d in SENSORS if d.key == "temperature")

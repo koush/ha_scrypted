@@ -1,4 +1,5 @@
 """Tests for scrypted binary sensors."""
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.scrypted.const import (
@@ -7,6 +8,7 @@ from custom_components.scrypted.const import (
     CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
     DOMAIN,
+    SIGNAL_NEW_DEVICE,
 )
 
 
@@ -92,10 +94,6 @@ async def test_offline_device_unavailable(hass, fake_sdk, enable_custom_integrat
 
 async def test_new_device_signal_dedup(hass, fake_sdk, enable_custom_integrations):
     """Re-announcing a known or unknown device creates no duplicate entities."""
-    from homeassistant.helpers.dispatcher import async_dispatcher_send
-
-    from custom_components.scrypted.const import SIGNAL_NEW_DEVICE
-
     entry = await setup_entry(hass)
     before = len(hass.states.async_all())
     async_dispatcher_send(hass, SIGNAL_NEW_DEVICE.format(entry.entry_id), "cam1")

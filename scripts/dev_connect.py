@@ -8,17 +8,16 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
+
+import aiohttp
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from custom_components.scrypted import sdk as sdk_module  # noqa: E402
+
 
 async def main():
-    from unittest.mock import MagicMock
-
-    import aiohttp
-
-    from custom_components.scrypted import sdk as sdk_module
-
     # Minimal HomeAssistant stand-in for async_connect_sdk.
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()

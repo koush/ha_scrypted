@@ -1,4 +1,7 @@
 """Tests for scrypted event entities."""
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+
+from custom_components.scrypted.const import SIGNAL_CONNECTION
 from tests.test_binary_sensor import setup_entry
 
 
@@ -139,10 +142,6 @@ async def test_detection_without_class_ignored(
 
 
 async def test_connection_signal_handling(hass, fake_sdk, enable_custom_integrations):
-    from homeassistant.helpers.dispatcher import async_dispatcher_send
-
-    from custom_components.scrypted.const import SIGNAL_CONNECTION
-
     entry = await setup_entry(hass)
     client = entry.runtime_data.client
     signal = SIGNAL_CONNECTION.format(entry.entry_id)

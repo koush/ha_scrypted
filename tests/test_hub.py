@@ -1,8 +1,11 @@
 """Tests for ScryptedClient."""
+import asyncio
+
 import pytest
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.scrypted import hub as hub_module
 from custom_components.scrypted.hub import ScryptedClient
 from custom_components.scrypted.const import (
     DOMAIN,
@@ -71,10 +74,6 @@ async def test_disconnect_triggers_reconnect(
     hass, entry, fake_sdk, mock_connect_sdk, monkeypatch
 ):
     """A dropped connection reconnects with backoff after a failed attempt."""
-    import asyncio
-
-    from custom_components.scrypted import hub as hub_module
-
     monkeypatch.setattr(hub_module, "RECONNECT_INITIAL_DELAY", 0)
     client = ScryptedClient(hass, entry)
     await client.async_connect()

@@ -1,7 +1,22 @@
 """Tests for discovery helpers."""
 from types import SimpleNamespace
 
-from custom_components.scrypted.entity import device_matches
+import pytest
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.scrypted.binary_sensor import (
+    BINARY_SENSORS,
+    ScryptedBinarySensor,
+)
+from custom_components.scrypted.const import DOMAIN, SIGNAL_NEW_DEVICE
+from custom_components.scrypted.entity import (
+    ScryptedDeviceEntity,
+    async_setup_scrypted_platform,
+    device_matches,
+)
+from tests.test_binary_sensor import setup_entry
 
 
 def make_client(fake_sdk, device_types=None):
@@ -34,16 +49,6 @@ def test_default_allowlist_is_cameras_and_doorbells(fake_sdk):
 
 def test_entity_handles_missing_device_and_values(fake_sdk):
     """Entities degrade gracefully when state or devices disappear."""
-    from types import SimpleNamespace
-
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
-
-    from custom_components.scrypted.binary_sensor import (
-        BINARY_SENSORS,
-        ScryptedBinarySensor,
-    )
-    from custom_components.scrypted.const import DOMAIN
-
     client = SimpleNamespace(sdk=fake_sdk, connected=True)
     entry = MockConfigEntry(domain=DOMAIN)
     description = next(d for d in BINARY_SENSORS if d.key == "motion")
@@ -69,8 +74,6 @@ def test_entity_handles_missing_device_and_values(fake_sdk):
 
 async def test_ha_imported_devices_are_excluded(hass, fake_sdk, enable_custom_integrations):
     """Devices provided by @scrypted/homeassistant never round-trip into HA."""
-    from tests.test_binary_sensor import setup_entry
-
     await setup_entry(hass)
     # haimport1 has VideoCamera + allowlisted type, but must produce nothing
     assert not [
@@ -81,12 +84,6 @@ async def test_ha_imported_devices_are_excluded(hass, fake_sdk, enable_custom_in
 async def test_setup_scrypted_platform_dedups_and_discovers_new(
     hass, fake_sdk, enable_custom_integrations
 ):
-    from homeassistant.helpers.dispatcher import async_dispatcher_send
-
-    from custom_components.scrypted.const import SIGNAL_NEW_DEVICE
-    from custom_components.scrypted.entity import async_setup_scrypted_platform
-    from tests.test_binary_sensor import setup_entry
-
     entry = await setup_entry(hass)
     added: list = []
     calls: list[str] = []
@@ -113,26 +110,14 @@ async def test_setup_scrypted_platform_dedups_and_discovers_new(
 
 
 async def test_setup_scrypted_platform_no_client(hass, enable_custom_integrations):
-    from types import SimpleNamespace
-
-    from custom_components.scrypted.entity import async_setup_scrypted_platform
-
     entry = SimpleNamespace(runtime_data=SimpleNamespace(client=None))
     await async_setup_scrypted_platform(hass, entry, lambda _: None, lambda d: [])
     # no exception is the assertion
 
 
 async def test_device_command_wraps_errors(hass, fake_sdk, enable_custom_integrations):
-    import pytest
-    from homeassistant.exceptions import HomeAssistantError
-
-    from tests.test_binary_sensor import setup_entry
-
     entry = await setup_entry(hass)
     client = entry.runtime_data.client
-    from custom_components.scrypted.binary_sensor import BINARY_SENSORS
-    from custom_components.scrypted.entity import ScryptedDeviceEntity
-
     entity = ScryptedDeviceEntity(client, entry, "cam1", BINARY_SENSORS[0])
     entity.entity_id = "binary_sensor.test"
     fake_sdk.systemManager.getDeviceById("cam1").takePicture.side_effect = RuntimeError("boom")
