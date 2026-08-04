@@ -14,6 +14,7 @@ import custom_components.scrypted as scrypted  # noqa: E402
 from custom_components.scrypted import config_flow, hub  # noqa: E402
 from custom_components.scrypted.const import DOMAIN  # noqa: E402
 
+
 @pytest.fixture(autouse=True)
 def _register_scrypted_flow(hass):
     """Register the config flow module so HA can resolve it."""

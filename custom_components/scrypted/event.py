@@ -13,10 +13,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from scrypted_sdk import ScryptedInterface
 
 from .const import SIGNAL_CONNECTION
 from .entity import ScryptedDeviceEntity, async_setup_scrypted_platform, device_matches
-from scrypted_sdk import ScryptedInterface
 
 _LOGGER = logging.getLogger(__name__)
 

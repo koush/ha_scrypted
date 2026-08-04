@@ -4,7 +4,6 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
 from homeassistant.const import (
     CONF_HOST,
     CONF_ICON,
@@ -12,9 +11,11 @@ from homeassistant.const import (
     CONF_PASSWORD,
     CONF_USERNAME,
 )
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import slugify
+from scrypted_sdk import ScryptedDeviceType
 
 from .const import (
     CONF_AUTO_REGISTER_RESOURCES,
@@ -26,7 +27,6 @@ from .const import (
     EXCLUDED_DEVICE_TYPES,
 )
 from .http import retrieve_token
-from scrypted_sdk import ScryptedDeviceType
 
 # All scrypted device types a user might want mirrored as entities
 # (server plumbing types are not offered).

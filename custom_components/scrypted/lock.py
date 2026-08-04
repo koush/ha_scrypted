@@ -8,6 +8,7 @@ from homeassistant.components.lock import LockEntity, LockEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from scrypted_sdk import ScryptedInterface
 
 from .entity import (
     ScryptedDeviceEntity,
@@ -15,7 +16,6 @@ from .entity import (
     async_setup_scrypted_platform,
     device_matches,
 )
-from scrypted_sdk import ScryptedInterface
 
 
 @dataclass(frozen=True, kw_only=True)

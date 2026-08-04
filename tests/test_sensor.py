@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 from homeassistant.const import CONF_HOST
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.scrypted import sensor

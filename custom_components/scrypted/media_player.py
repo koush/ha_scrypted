@@ -24,9 +24,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from scrypted_sdk import ScryptedInterface
 
 from .entity import ScryptedDeviceEntity, async_setup_scrypted_platform, device_matches
-from scrypted_sdk import ScryptedInterface
 
 _LOGGER = logging.getLogger(__name__)
 

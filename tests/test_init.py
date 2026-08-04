@@ -23,6 +23,8 @@ from homeassistant.const import (
 )
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+from scrypted_sdk import ScryptedConnectionError
 
 import custom_components.scrypted as scrypted
 from custom_components.scrypted.const import (
@@ -31,10 +33,6 @@ from custom_components.scrypted.const import (
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
-from scrypted_sdk import ScryptedConnectionError
-
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from tests.test_binary_sensor import setup_entry
 
 

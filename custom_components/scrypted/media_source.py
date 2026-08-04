@@ -4,8 +4,6 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
-from yarl import URL
-
 from homeassistant.components.camera import DynamicStreamSettings
 from homeassistant.components.media_player import BrowseError, MediaClass
 from homeassistant.components.media_source import (
@@ -15,14 +13,19 @@ from homeassistant.components.media_source import (
     PlayMedia,
     Unresolvable,
 )
-from homeassistant.components.stream import FORMAT_CONTENT_TYPE, HLS_PROVIDER, create_stream
+from homeassistant.components.stream import (
+    FORMAT_CONTENT_TYPE,
+    HLS_PROVIDER,
+    create_stream,
+)
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
+from scrypted_sdk import ScryptedInterface, ScryptedMimeTypes
+from yarl import URL
 
 from .const import DOMAIN
 from .entity import device_matches
-from scrypted_sdk import ScryptedInterface, ScryptedMimeTypes
 
 _LOGGER = logging.getLogger(__name__)
 

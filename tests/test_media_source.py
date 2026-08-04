@@ -2,13 +2,12 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from homeassistant.components import media_source
 from homeassistant.components.media_player import BrowseError
 from homeassistant.components.stream import FORMAT_CONTENT_TYPE, HLS_PROVIDER
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 import custom_components.scrypted as scrypted
 from custom_components.scrypted.const import (
