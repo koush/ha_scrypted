@@ -11,15 +11,10 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import SIGNAL_CONNECTION, SIGNAL_DEVICE_UPDATE, SIGNAL_NEW_DEVICE
-from .sdk import (
-    EioRpcTransport,
-    ScryptedConnectionError,
-    async_connect_sdk,
-    get_base_url,
-)
-from scrypted_sdk import ScryptedStatic
+from .sdk import async_connect_sdk
+from scrypted_sdk import EioRpcTransport, ScryptedConnectionError, ScryptedStatic
 
-__all__ = ["ScryptedClient", "ScryptedConnectionError", "get_base_url"]
+__all__ = ["ScryptedClient"]
 
 _LOGGER = logging.getLogger(__name__)
 

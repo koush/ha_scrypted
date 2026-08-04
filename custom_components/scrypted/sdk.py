@@ -20,12 +20,7 @@ from homeassistant.helpers.aiohttp_client import (
     async_get_clientsession,
 )
 
-__all__ = [
-    "EioRpcTransport",
-    "ScryptedConnectionError",
-    "async_connect_sdk",
-    "get_base_url",
-]
+__all__ = ["async_connect_sdk", "get_base_url"]
 
 PLUGIN_ID = "@scrypted/core"
 
