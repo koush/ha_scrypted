@@ -12,6 +12,7 @@ async def test_camera_created(hass, fake_sdk, enable_custom_integrations):
     await setup_entry(hass)
     state = hass.states.get("camera.porch_front_door_cam")
     assert state is not None
+    assert state.attributes["device_id"] == "cam1"
 
 
 async def test_camera_snapshot(hass, fake_sdk, enable_custom_integrations):

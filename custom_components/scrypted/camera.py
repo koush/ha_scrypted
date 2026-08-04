@@ -59,6 +59,8 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
     ) -> None:
         Camera.__init__(self)
         ScryptedDeviceEntity.__init__(self, client, entry, device_id, description)
+        # Exposed so users can cross-reference entities with scrypted NVR cards.
+        self._attr_extra_state_attributes = {"device_id": device_id}
 
     @property
     def is_recording(self) -> bool:
