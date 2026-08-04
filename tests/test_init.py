@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp import ClientConnectorError, ClientResponseError
@@ -203,38 +203,40 @@ async def test_unregister_yaml_resources_skip_deletion(hass):
 
 
 @pytest.mark.asyncio
-async def test_async_setup_without_domain_config(hass, monkeypatch):
+async def test_async_setup_without_domain_config(hass):
     """Test case for test_async_setup_without_domain_config."""
     registered = {}
     hass.http = SimpleNamespace(register_view=lambda view: registered.setdefault("view", view))
-    monkeypatch.setattr(scrypted, "ScryptedView", lambda hass, session: "view")
-    result = await scrypted.async_setup(hass, {})
-    assert result is True
-    assert registered["view"] == "view"
+    with patch.object(scrypted, "ScryptedView", lambda hass, session: "view"):
+        result = await scrypted.async_setup(hass, {})
+        assert result is True
+        assert registered["view"] == "view"
 
 
 @pytest.mark.asyncio
-async def test_async_setup_imports_yaml_config(hass, monkeypatch):
+async def test_async_setup_imports_yaml_config(hass):
     """Test case for test_async_setup_imports_yaml_config."""
     hass.http = SimpleNamespace(register_view=lambda view: None)
-    monkeypatch.setattr(scrypted, "ScryptedView", lambda hass, session: None)
     notifications = {}
-    monkeypatch.setattr(
-        scrypted,
-        "async_create",
-        lambda *args, **kwargs: notifications.setdefault("created", (args, kwargs)),
-    )
     flow_init = AsyncMock(return_value={"type": "form"})
-    monkeypatch.setattr(hass.config_entries.flow, "async_init", flow_init)
-    result = await scrypted.async_setup(hass, {DOMAIN: {"host": "example"}})
-    await hass.async_block_till_done()
-    assert result is False
-    flow_init.assert_awaited()
-    assert "Your Scrypted configuration" in notifications["created"][0][1]
+    with (
+        patch.object(scrypted, "ScryptedView", lambda hass, session: None),
+        patch.object(
+            scrypted,
+            "async_create",
+            lambda *args, **kwargs: notifications.setdefault("created", (args, kwargs)),
+        ),
+        patch.object(hass.config_entries.flow, "async_init", flow_init),
+    ):
+        result = await scrypted.async_setup(hass, {DOMAIN: {"host": "example"}})
+        await hass.async_block_till_done()
+        assert result is False
+        flow_init.assert_awaited()
+        assert "Your Scrypted configuration" in notifications["created"][0][1]
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_registers_resources_and_panel(hass, monkeypatch):
+async def test_async_setup_entry_registers_resources_and_panel(hass):
     """Test case for test_async_setup_entry_registers_resources_and_panel."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -255,23 +257,25 @@ async def test_async_setup_entry_registers_resources_and_panel(hass, monkeypatch
     register_resource = AsyncMock()
     forward_setups = AsyncMock()
     reload_mock = AsyncMock()
-    monkeypatch.setattr(scrypted, "_async_register_lovelace_resource", register_resource)
-    monkeypatch.setattr(scrypted, "async_register_built_in_panel", lambda *args, **kwargs: kwargs)
-    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", forward_setups)
-    monkeypatch.setattr(hass.config_entries, "async_reload", reload_mock)
-    result = await scrypted.async_setup_entry(hass, entry)
-    await hass.async_block_till_done()
-    assert result is True
-    register_resource.assert_awaited()
-    forward_setups.assert_awaited()
-    assert hass.data[DOMAIN]["token"] == entry
-    assert entry.options[CONF_SCRYPTED_NVR] is False
-    assert CONF_SCRYPTED_NVR not in entry.data
-    assert not reload_mock.called
+    with (
+        patch.object(scrypted, "_async_register_lovelace_resource", register_resource),
+        patch.object(scrypted, "async_register_built_in_panel", lambda *args, **kwargs: kwargs),
+        patch.object(hass.config_entries, "async_forward_entry_setups", forward_setups),
+        patch.object(hass.config_entries, "async_reload", reload_mock),
+    ):
+        result = await scrypted.async_setup_entry(hass, entry)
+        await hass.async_block_till_done()
+        assert result is True
+        register_resource.assert_awaited()
+        forward_setups.assert_awaited()
+        assert hass.data[DOMAIN]["token"] == entry
+        assert entry.options[CONF_SCRYPTED_NVR] is False
+        assert CONF_SCRYPTED_NVR not in entry.data
+        assert not reload_mock.called
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_moves_auto_register_flag(hass, monkeypatch):
+async def test_async_setup_entry_moves_auto_register_flag(hass):
     """Test case for test_async_setup_entry_moves_auto_register_flag."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -289,36 +293,38 @@ async def test_async_setup_entry_moves_auto_register_flag(hass, monkeypatch):
     entry.add_to_hass(hass)
     register_resource = AsyncMock()
     reload_mock = AsyncMock()
-    monkeypatch.setattr(scrypted, "_async_register_lovelace_resource", register_resource)
-    monkeypatch.setattr(scrypted, "async_register_built_in_panel", lambda *args, **kwargs: None)
-    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
-    monkeypatch.setattr(hass.config_entries, "async_reload", reload_mock)
-    result = await scrypted.async_setup_entry(hass, entry)
-    assert result is False
-    reload_mock.assert_called_once_with(entry.entry_id)
-    assert CONF_AUTO_REGISTER_RESOURCES not in entry.data
-    assert CONF_SCRYPTED_NVR not in entry.data
-    assert entry.options[CONF_AUTO_REGISTER_RESOURCES] is True
-    assert entry.options[CONF_SCRYPTED_NVR] is True
+    with (
+        patch.object(scrypted, "_async_register_lovelace_resource", register_resource),
+        patch.object(scrypted, "async_register_built_in_panel", lambda *args, **kwargs: None),
+        patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
+        patch.object(hass.config_entries, "async_reload", reload_mock),
+    ):
+        result = await scrypted.async_setup_entry(hass, entry)
+        assert result is False
+        reload_mock.assert_called_once_with(entry.entry_id)
+        assert CONF_AUTO_REGISTER_RESOURCES not in entry.data
+        assert CONF_SCRYPTED_NVR not in entry.data
+        assert entry.options[CONF_AUTO_REGISTER_RESOURCES] is True
+        assert entry.options[CONF_SCRYPTED_NVR] is True
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_without_data_triggers_reauth(hass, monkeypatch):
+async def test_async_setup_entry_without_data_triggers_reauth(hass):
     """Test case for test_async_setup_entry_without_data_triggers_reauth."""
     entry = MockConfigEntry(domain=DOMAIN, data={})
     entry.add_to_hass(hass)
     flow_init = AsyncMock(return_value={"type": "form"})
-    monkeypatch.setattr(hass.config_entries.flow, "async_init", flow_init)
-    result = await scrypted.async_setup_entry(hass, entry)
-    await hass.async_block_till_done()
-    assert result is False
-    assert flow_init.await_count == 1
-    assert flow_init.call_args.kwargs["context"]["source"] == SOURCE_REAUTH
-    assert flow_init.call_args.kwargs["context"]["entry_id"] == entry.entry_id
+    with patch.object(hass.config_entries.flow, "async_init", flow_init):
+        result = await scrypted.async_setup_entry(hass, entry)
+        await hass.async_block_till_done()
+        assert result is False
+        assert flow_init.await_count == 1
+        assert flow_init.call_args.kwargs["context"]["source"] == SOURCE_REAUTH
+        assert flow_init.call_args.kwargs["context"]["entry_id"] == entry.entry_id
 
 
 @pytest.mark.asyncio
-async def test_update_listener_moves_option_keys(hass, monkeypatch):
+async def test_update_listener_moves_option_keys(hass):
     """Test case for test_update_listener_moves_option_keys."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -336,17 +342,17 @@ async def test_update_listener_moves_option_keys(hass, monkeypatch):
     )
     entry.add_to_hass(hass)
     reload_mock = AsyncMock(return_value=None)
-    monkeypatch.setattr(hass.config_entries, "async_reload", reload_mock)
-    await scrypted._async_update_listener(hass, entry)
-    assert CONF_AUTO_REGISTER_RESOURCES not in entry.data
-    assert CONF_SCRYPTED_NVR not in entry.data
-    assert entry.options[CONF_AUTO_REGISTER_RESOURCES] is True
-    assert entry.options[CONF_SCRYPTED_NVR] is True
-    reload_mock.assert_called_once_with(entry.entry_id)
+    with patch.object(hass.config_entries, "async_reload", reload_mock):
+        await scrypted._async_update_listener(hass, entry)
+        assert CONF_AUTO_REGISTER_RESOURCES not in entry.data
+        assert CONF_SCRYPTED_NVR not in entry.data
+        assert entry.options[CONF_AUTO_REGISTER_RESOURCES] is True
+        assert entry.options[CONF_SCRYPTED_NVR] is True
+        reload_mock.assert_called_once_with(entry.entry_id)
 
 
 @pytest.mark.asyncio
-async def test_ensure_entry_options_no_changes(hass, monkeypatch):
+async def test_ensure_entry_options_no_changes(hass):
     """Test case for test_ensure_entry_options_no_changes."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -365,14 +371,14 @@ async def test_ensure_entry_options_no_changes(hass, monkeypatch):
     )
     entry.add_to_hass(hass)
     update_mock = MagicMock()
-    monkeypatch.setattr(hass.config_entries, "async_update_entry", update_mock)
-    changed = await scrypted._async_ensure_entry_options(hass, entry)
-    assert changed is False
-    update_mock.assert_not_called()
+    with patch.object(hass.config_entries, "async_update_entry", update_mock):
+        changed = await scrypted._async_ensure_entry_options(hass, entry)
+        assert changed is False
+        update_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_ensure_entry_options_adds_defaults(hass, monkeypatch):
+async def test_ensure_entry_options_adds_defaults(hass):
     """Test case for test_ensure_entry_options_adds_defaults."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -386,14 +392,14 @@ async def test_ensure_entry_options_adds_defaults(hass, monkeypatch):
     )
     entry.add_to_hass(hass)
     update_mock = MagicMock()
-    monkeypatch.setattr(hass.config_entries, "async_update_entry", update_mock)
-    changed = await scrypted._async_ensure_entry_options(hass, entry)
-    assert changed is True
-    update_mock.assert_called_once()
+    with patch.object(hass.config_entries, "async_update_entry", update_mock):
+        changed = await scrypted._async_ensure_entry_options(hass, entry)
+        assert changed is True
+        update_mock.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_handles_missing_token(hass, monkeypatch):
+async def test_async_setup_entry_handles_missing_token(hass):
     """Test case for test_async_setup_entry_handles_missing_token."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -412,20 +418,22 @@ async def test_async_setup_entry_handles_missing_token(hass, monkeypatch):
     )
     entry.add_to_hass(hass)
     flow_init = AsyncMock(return_value={"type": "form"})
-    monkeypatch.setattr(hass.config_entries.flow, "async_init", flow_init)
 
     async def _no_token(*args, **kwargs):
         return None
 
-    monkeypatch.setattr(scrypted, "retrieve_token", _no_token)
-    result = await scrypted.async_setup_entry(hass, entry)
-    await hass.async_block_till_done()
-    assert result is False
-    assert flow_init.call_args.kwargs["context"]["source"] == SOURCE_REAUTH
+    with (
+        patch.object(hass.config_entries.flow, "async_init", flow_init),
+        patch.object(scrypted, "retrieve_token", _no_token),
+    ):
+        result = await scrypted.async_setup_entry(hass, entry)
+        await hass.async_block_till_done()
+        assert result is False
+        assert flow_init.call_args.kwargs["context"]["source"] == SOURCE_REAUTH
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_client_connector_error(hass, monkeypatch):
+async def test_async_setup_entry_client_connector_error(hass):
     """Test case for test_async_setup_entry_client_connector_error."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -447,13 +455,15 @@ async def test_async_setup_entry_client_connector_error(hass, monkeypatch):
     async def _raise(*args, **kwargs):
         raise ClientConnectorError(SimpleNamespace(), OSError())
 
-    monkeypatch.setattr(scrypted, "retrieve_token", _raise)
-    with pytest.raises(ConfigEntryNotReady):
+    with (
+        patch.object(scrypted, "retrieve_token", _raise),
+        pytest.raises(ConfigEntryNotReady),
+    ):
         await scrypted.async_setup_entry(hass, entry)
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_other_exception_propagates(hass, monkeypatch):
+async def test_async_setup_entry_other_exception_propagates(hass):
     """Test case for test_async_setup_entry_other_exception_propagates."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -475,13 +485,15 @@ async def test_async_setup_entry_other_exception_propagates(hass, monkeypatch):
     async def _raise(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(scrypted, "retrieve_token", _raise)
-    with pytest.raises(RuntimeError):
+    with (
+        patch.object(scrypted, "retrieve_token", _raise),
+        pytest.raises(RuntimeError),
+    ):
         await scrypted.async_setup_entry(hass, entry)
 
 
 @pytest.mark.asyncio
-async def test_async_unload_entry(hass, monkeypatch):
+async def test_async_unload_entry(hass):
     """Test case for test_async_unload_entry."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -496,18 +508,20 @@ async def test_async_unload_entry(hass, monkeypatch):
     hass.data.setdefault(DOMAIN, {})["token"] = entry
     hass.data.setdefault(scrypted._RESOURCE_TRACKER, {})[entry.entry_id] = set()
     unregister = AsyncMock()
-    monkeypatch.setattr(scrypted, "_async_unregister_lovelace_resource", unregister)
     removed = {}
-    monkeypatch.setattr(scrypted, "async_remove_panel", lambda *args, **kwargs: removed.setdefault("called", True))
-    result = await scrypted.async_unload_entry(hass, entry)
-    assert result is True
-    unregister.assert_awaited()
-    assert removed["called"] is True
-    assert DOMAIN not in hass.data
+    with (
+        patch.object(scrypted, "_async_unregister_lovelace_resource", unregister),
+        patch.object(scrypted, "async_remove_panel", lambda *args, **kwargs: removed.setdefault("called", True)),
+    ):
+        result = await scrypted.async_unload_entry(hass, entry)
+        assert result is True
+        unregister.assert_awaited()
+        assert removed["called"] is True
+        assert DOMAIN not in hass.data
 
 
 @pytest.mark.asyncio
-async def test_panel_registered_with_token(hass, monkeypatch):
+async def test_panel_registered_with_token(hass):
     """Test that panel is registered using token in the URL path."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -526,19 +540,21 @@ async def test_panel_registered_with_token(hass, monkeypatch):
     )
     entry.add_to_hass(hass)
     panel_kwargs = {}
-    monkeypatch.setattr(
-        scrypted,
-        "async_register_built_in_panel",
-        lambda *args, **kwargs: panel_kwargs.update(kwargs),
-    )
-    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
-    result = await scrypted.async_setup_entry(hass, entry)
-    assert result is True
-    assert panel_kwargs["frontend_url_path"] == f"{DOMAIN}_token"
+    with (
+        patch.object(
+            scrypted,
+            "async_register_built_in_panel",
+            lambda *args, **kwargs: panel_kwargs.update(kwargs),
+        ),
+        patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
+    ):
+        result = await scrypted.async_setup_entry(hass, entry)
+        assert result is True
+        assert panel_kwargs["frontend_url_path"] == f"{DOMAIN}_token"
 
 
 @pytest.mark.asyncio
-async def test_panel_unregistered_with_token(hass, monkeypatch):
+async def test_panel_unregistered_with_token(hass):
     """Test that panel is unregistered using the same token-based URL path."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -552,20 +568,22 @@ async def test_panel_unregistered_with_token(hass, monkeypatch):
     entry.add_to_hass(hass)
     hass.data.setdefault(DOMAIN, {})["token"] = entry
     unregister = AsyncMock()
-    monkeypatch.setattr(scrypted, "_async_unregister_lovelace_resource", unregister)
     removed_panels = []
-    monkeypatch.setattr(
-        scrypted,
-        "async_remove_panel",
-        lambda hass, panel_name: removed_panels.append(panel_name),
-    )
-    result = await scrypted.async_unload_entry(hass, entry)
-    assert result is True
-    assert removed_panels == [f"{DOMAIN}_token"]
+    with (
+        patch.object(scrypted, "_async_unregister_lovelace_resource", unregister),
+        patch.object(
+            scrypted,
+            "async_remove_panel",
+            lambda hass, panel_name: removed_panels.append(panel_name),
+        ),
+    ):
+        result = await scrypted.async_unload_entry(hass, entry)
+        assert result is True
+        assert removed_panels == [f"{DOMAIN}_token"]
 
 
 @pytest.mark.asyncio
-async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
+async def test_panel_reload_uses_consistent_url_path(hass):
     """Test that panel can be reloaded without 'Overwriting panel' errors.
 
     This verifies that both registration and unregistration use the same
@@ -602,28 +620,29 @@ async def test_panel_reload_uses_consistent_url_path(hass, monkeypatch):
             registered_panels.remove(panel_name)
         removed_panels.append(panel_name)
 
-    monkeypatch.setattr(scrypted, "async_register_built_in_panel", register_panel)
-    monkeypatch.setattr(scrypted, "async_remove_panel", remove_panel)
-    monkeypatch.setattr(scrypted, "_async_unregister_lovelace_resource", AsyncMock())
-    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
+    with (
+        patch.object(scrypted, "async_register_built_in_panel", register_panel),
+        patch.object(scrypted, "async_remove_panel", remove_panel),
+        patch.object(scrypted, "_async_unregister_lovelace_resource", AsyncMock()),
+        patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
+    ):
+        # First setup
+        result = await scrypted.async_setup_entry(hass, entry)
+        assert result is True
+        assert f"{DOMAIN}_token" in registered_panels
 
-    # First setup
-    result = await scrypted.async_setup_entry(hass, entry)
-    assert result is True
-    assert f"{DOMAIN}_token" in registered_panels
+        # Unload
+        result = await scrypted.async_unload_entry(hass, entry)
+        assert result is True
+        assert f"{DOMAIN}_token" not in registered_panels
 
-    # Unload
-    result = await scrypted.async_unload_entry(hass, entry)
-    assert result is True
-    assert f"{DOMAIN}_token" not in registered_panels
+        # Re-add token mapping for second setup
+        hass.data.setdefault(DOMAIN, {})
 
-    # Re-add token mapping for second setup
-    hass.data.setdefault(DOMAIN, {})
-
-    # Second setup (simulating reload) - should not raise ValueError
-    result = await scrypted.async_setup_entry(hass, entry)
-    assert result is True
-    assert f"{DOMAIN}_token" in registered_panels
+        # Second setup (simulating reload) - should not raise ValueError
+        result = await scrypted.async_setup_entry(hass, entry)
+        assert result is True
+        assert f"{DOMAIN}_token" in registered_panels
 
 
 async def test_setup_entry_creates_client_and_unloads(hass, enable_custom_integrations):
@@ -681,7 +700,7 @@ async def test_setup_entry_entities_disabled(hass, enable_custom_integrations):
     assert entry.runtime_data.client is None
 
 
-async def test_setup_entry_auth_error_starts_reauth(hass, monkeypatch):
+async def test_setup_entry_auth_error_starts_reauth(hass):
     """HTTP 401 from token retrieval starts the reauth flow."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -700,23 +719,24 @@ async def test_setup_entry_auth_error_starts_reauth(hass, monkeypatch):
             request_info=MagicMock(), history=(), status=401
         )
 
-    monkeypatch.setattr(scrypted, "retrieve_token", _raise)
     flow_init = AsyncMock()
-    monkeypatch.setattr(hass.config_entries.flow, "async_init", flow_init)
-    result = await scrypted.async_setup_entry(hass, entry)
-    await hass.async_block_till_done()
-    assert result is False
-    flow_init.assert_awaited()
+    with (
+        patch.object(scrypted, "retrieve_token", _raise),
+        patch.object(hass.config_entries.flow, "async_init", flow_init),
+    ):
+        result = await scrypted.async_setup_entry(hass, entry)
+        await hass.async_block_till_done()
+        assert result is False
+        flow_init.assert_awaited()
 
 
 async def test_setup_entry_not_ready_on_engineio_failure(
-    hass, monkeypatch, enable_custom_integrations
+    hass, enable_custom_integrations
 ):
     """engine.io connect failure raises ConfigEntryNotReady (setup retry)."""
     async def _fail(self):
         raise ScryptedConnectionError("nope")
 
-    monkeypatch.setattr(scrypted.ScryptedClient, "async_connect", _fail)
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -733,20 +753,21 @@ async def test_setup_entry_not_ready_on_engineio_failure(
         },
     )
     entry.add_to_hass(hass)
-    assert not await hass.config_entries.async_setup(entry.entry_id)
-    assert entry.state is ConfigEntryState.SETUP_RETRY
+    with patch.object(scrypted.ScryptedClient, "async_connect", _fail):
+        assert not await hass.config_entries.async_setup(entry.entry_id)
+        assert entry.state is ConfigEntryState.SETUP_RETRY
 
 
-async def test_unload_entry_fails_when_platforms_fail(hass, monkeypatch):
+async def test_unload_entry_fails_when_platforms_fail(hass):
     """Unload aborts when platform unload fails."""
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
     entry.add_to_hass(hass)
-    monkeypatch.setattr(
+    with patch.object(
         hass.config_entries,
         "async_unload_platforms",
         AsyncMock(return_value=False),
-    )
-    assert await scrypted.async_unload_entry(hass, entry) is False
+    ):
+        assert await scrypted.async_unload_entry(hass, entry) is False
 
 
 async def test_remove_config_entry_device(hass, fake_sdk, enable_custom_integrations):

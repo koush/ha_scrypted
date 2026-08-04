@@ -1,5 +1,6 @@
 """Tests for ScryptedClient."""
 import asyncio
+from unittest.mock import patch
 
 import pytest
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -71,34 +72,33 @@ async def test_unknown_device_dispatches_new_device(hass, entry, fake_sdk):
 
 
 async def test_disconnect_triggers_reconnect(
-    hass, entry, fake_sdk, mock_connect_sdk, monkeypatch
+    hass, entry, fake_sdk, mock_connect_sdk
 ):
     """A dropped connection reconnects with backoff after a failed attempt."""
-    monkeypatch.setattr(hub_module, "RECONNECT_INITIAL_DELAY", 0)
-    client = ScryptedClient(hass, entry)
-    await client.async_connect()
+    with patch.object(hub_module, "RECONNECT_INITIAL_DELAY", 0):
+        client = ScryptedClient(hass, entry)
+        await client.async_connect()
 
-    flaky_state = {"calls": 0}
-    real_connect = hub_module.async_connect_sdk
+        flaky_state = {"calls": 0}
+        real_connect = hub_module.async_connect_sdk
 
-    async def flaky(*args, **kwargs):
-        flaky_state["calls"] += 1
-        if flaky_state["calls"] == 1:
-            raise hub_module.ScryptedConnectionError("boom")
-        return await real_connect(*args, **kwargs)
+        async def flaky(*args, **kwargs):
+            flaky_state["calls"] += 1
+            if flaky_state["calls"] == 1:
+                raise hub_module.ScryptedConnectionError("boom")
+            return await real_connect(*args, **kwargs)
 
-    monkeypatch.setattr(hub_module, "async_connect_sdk", flaky)
+        with patch.object(hub_module, "async_connect_sdk", flaky):
+            mock_connect_sdk.transport.handlers["disconnect"]()
+            assert client.connected is False
 
-    mock_connect_sdk.transport.handlers["disconnect"]()
-    assert client.connected is False
-
-    for _ in range(50):
-        if client.connected:
-            break
-        await asyncio.sleep(0)
-        await hass.async_block_till_done()
-    assert client.connected
-    assert flaky_state["calls"] == 2
+            for _ in range(50):
+                if client.connected:
+                    break
+                await asyncio.sleep(0)
+                await hass.async_block_till_done()
+            assert client.connected
+            assert flaky_state["calls"] == 2
 
     await client.async_disconnect()
     assert client.device_ids == []

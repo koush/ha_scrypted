@@ -3,6 +3,7 @@
 import copy
 import importlib
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant import loader
@@ -22,29 +23,34 @@ def _register_scrypted_flow(hass):
 
 
 @pytest.fixture(autouse=True)
-def _patch_async_get_clientsession(monkeypatch):
+def _patch_async_get_clientsession():
     """Prevent tests from creating real aiohttp sessions."""
 
     def _fake_session(hass, *args, **kwargs):
         return SimpleNamespace(loop=hass.loop)
 
-    monkeypatch.setattr(scrypted, "async_get_clientsession", _fake_session)
-    monkeypatch.setattr(config_flow, "async_get_clientsession", _fake_session)
+    with (
+        patch.object(scrypted, "async_get_clientsession", _fake_session),
+        patch.object(config_flow, "async_get_clientsession", _fake_session),
+    ):
+        yield
 
 
 @pytest.fixture(autouse=True)
-def _patch_retrieve_token(monkeypatch):
+def _patch_retrieve_token():
     """Return a canned token unless a test overrides the patch."""
 
     async def _fake_retrieve(data, session):
         return "token"
 
-    monkeypatch.setattr(scrypted, "retrieve_token", _fake_retrieve)
-    monkeypatch.setattr(config_flow, "retrieve_token", _fake_retrieve)
+    with (
+        patch.object(scrypted, "retrieve_token", _fake_retrieve),
+        patch.object(config_flow, "retrieve_token", _fake_retrieve),
+    ):
+        yield
 
 
 # --- Scrypted SDK fakes -----------------------------------------------------
-from unittest.mock import AsyncMock  # noqa: E402
 
 
 def state(**props):
@@ -359,12 +365,12 @@ def fake_sdk(system_state):
 
 
 @pytest.fixture(autouse=True)
-def mock_connect_sdk(monkeypatch, fake_sdk):
+def mock_connect_sdk(fake_sdk):
     """All tests connect to the fake SDK unless they re-patch."""
     transport = FakeTransport()
 
     async def _fake_connect(hass, host, username, password, plugin_id="@scrypted/core"):
         return transport, fake_sdk
 
-    monkeypatch.setattr(hub, "async_connect_sdk", _fake_connect)
-    return SimpleNamespace(transport=transport, sdk=fake_sdk)
+    with patch.object(hub, "async_connect_sdk", _fake_connect):
+        yield SimpleNamespace(transport=transport, sdk=fake_sdk)

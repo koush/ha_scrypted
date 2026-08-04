@@ -1,5 +1,5 @@
 """Tests for the scrypted NVR clips media source."""
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -109,7 +109,7 @@ async def test_resolve_clip_with_resources(hass, fake_sdk, enable_custom_integra
 
 
 async def test_resolve_clip_without_resources_falls_back(
-    hass, fake_sdk, enable_custom_integrations, monkeypatch
+    hass, fake_sdk, enable_custom_integrations
 ):
     entry = await setup_media_source(hass)
     device = fake_sdk.systemManager.getDeviceById("cam1")
@@ -130,13 +130,12 @@ async def test_resolve_clip_without_resources_falls_back(
         return_value="/api/hls/xyz/master_playlist.m3u8"
     )
     create_stream_mock = Mock(return_value=fake_stream)
-    monkeypatch.setattr(
+    with patch(
         "custom_components.scrypted.media_source.create_stream", create_stream_mock
-    )
-
-    play = await media_source.async_resolve_media(
-        hass, f"media-source://scrypted/{entry.entry_id}/cam1/{day_id}/clip1", None
-    )
+    ):
+        play = await media_source.async_resolve_media(
+            hass, f"media-source://scrypted/{entry.entry_id}/cam1/{day_id}/clip1", None
+        )
 
     device.getVideoClip.assert_awaited_once_with("clip1")
     fake_sdk.mediaManager.convertMediaObjectToJSON.assert_awaited_once()
@@ -259,14 +258,12 @@ async def test_entry_token_missing_raises_browse_error(
 
 
 async def test_browse_root_with_multiple_entries_lists_entries(
-    hass, fake_sdk, enable_custom_integrations, monkeypatch
+    hass, fake_sdk, enable_custom_integrations
 ):
     entry1 = await setup_media_source(hass)
 
     async def _fake_retrieve(data, session):
         return "token2"
-
-    monkeypatch.setattr(scrypted, "retrieve_token", _fake_retrieve)
 
     entry2 = MockConfigEntry(
         domain=DOMAIN,
@@ -285,8 +282,9 @@ async def test_browse_root_with_multiple_entries_lists_entries(
         },
     )
     entry2.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry2.entry_id)
-    await hass.async_block_till_done()
+    with patch.object(scrypted, "retrieve_token", _fake_retrieve):
+        assert await hass.config_entries.async_setup(entry2.entry_id)
+        await hass.async_block_till_done()
 
     root = await media_source.async_browse_media(hass, "media-source://scrypted")
     titles = {child.title for child in root.children}
