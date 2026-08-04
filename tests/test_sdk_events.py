@@ -12,11 +12,11 @@ to a pre-fix state.
 import asyncio
 from types import SimpleNamespace
 
-from scrypted_sdk.plugin_remote import PluginRemote, SystemManager
+from scrypted_sdk import PluginRemote, SystemManager
 
 
 def make_remote_and_manager(system_state):
-    """Build a PluginRemote wired like rpc_transport's resolve()/loadZip."""
+    """Build a PluginRemote wired like the sdk module's resolve()/loadZip."""
     cluster_setup = SimpleNamespace(peer=SimpleNamespace(params={}))
     remote = PluginRemote(
         cluster_setup, None, "@scrypted/core", {}, asyncio.get_event_loop()

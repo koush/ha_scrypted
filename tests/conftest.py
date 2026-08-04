@@ -362,12 +362,12 @@ def fake_sdk(system_state):
 @pytest.fixture(autouse=True)
 def mock_connect_sdk(monkeypatch, fake_sdk):
     """All tests connect to the fake SDK unless they re-patch."""
-    from custom_components.scrypted import client as client_module
+    from custom_components.scrypted import hub as hub_module
 
     transport = FakeTransport()
 
     async def _fake_connect(hass, host, username, password, plugin_id="@scrypted/core"):
         return transport, fake_sdk
 
-    monkeypatch.setattr(client_module, "async_connect_sdk", _fake_connect)
+    monkeypatch.setattr(hub_module, "async_connect_sdk", _fake_connect)
     return SimpleNamespace(transport=transport, sdk=fake_sdk)

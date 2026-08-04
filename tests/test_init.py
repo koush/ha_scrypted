@@ -713,7 +713,7 @@ async def test_setup_entry_not_ready_on_engineio_failure(
     """engine.io connect failure raises ConfigEntryNotReady (setup retry)."""
     from homeassistant.config_entries import ConfigEntryState
 
-    from custom_components.scrypted.client import ScryptedConnectionError
+    from custom_components.scrypted.hub import ScryptedConnectionError
 
     async def _fail(self):
         raise ScryptedConnectionError("nope")

@@ -1,4 +1,4 @@
 [run]
 omit =
     custom_components/scrypted/http.py
-    custom_components/scrypted/rpc_transport.py
+    custom_components/scrypted/sdk.py

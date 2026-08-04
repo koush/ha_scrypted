@@ -22,7 +22,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .entity import device_matches
-from scrypted_sdk.scrypted_python.scrypted_sdk.types import ScryptedInterface, ScryptedMimeTypes
+from scrypted_sdk import ScryptedInterface, ScryptedMimeTypes
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import SIGNAL_CONNECTION, SIGNAL_DEVICE_UPDATE, SIGNAL_NEW_DEVICE
-from .rpc_transport import (
+from .sdk import (
     EioRpcTransport,
     ScryptedConnectionError,
     async_connect_sdk,

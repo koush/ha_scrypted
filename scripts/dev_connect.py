@@ -17,18 +17,18 @@ async def main():
 
     import aiohttp
 
-    from custom_components.scrypted import rpc_transport
+    from custom_components.scrypted import sdk as sdk_module
 
     # Minimal HomeAssistant stand-in for async_connect_sdk.
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
     session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False))
-    rpc_transport.async_get_clientsession = lambda *_, **__: session
-    rpc_transport.async_create_clientsession = lambda *_, **__: aiohttp.ClientSession(
+    sdk_module.async_get_clientsession = lambda *_, **__: session
+    sdk_module.async_create_clientsession = lambda *_, **__: aiohttp.ClientSession(
         connector=aiohttp.TCPConnector(ssl=False)
     )
 
-    transport, sdk = await rpc_transport.async_connect_sdk(
+    transport, sdk = await sdk_module.async_connect_sdk(
         hass,
         os.environ["SCRYPTED_HOST"],
         os.environ["SCRYPTED_USERNAME"],
