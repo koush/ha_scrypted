@@ -45,18 +45,10 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
         verify_ssl=False,
     )
     resp_json = await resp.json()
-    
-    # Support both old API (token field) and new API (authorization field)
-    token = resp_json.get("token")
-    if not token:
-        authorization = resp_json.get("authorization", "")
-        if authorization.startswith("Bearer "):
-            token = authorization[7:]  # Remove "Bearer " prefix
-    
-    if not token:
+    if "token" not in resp_json:
         raise ValueError("No token in response")
 
-    return token
+    return resp_json["token"]
 
 
 class ScryptedView(HomeAssistantView):
