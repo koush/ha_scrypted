@@ -25,7 +25,10 @@ async def test_async_setup_entry_adds_token_sensor(hass):
     """Test case for test_async_setup_entry_adds_token_sensor."""
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
     entry.add_to_hass(hass)
-    hass.data.setdefault(DOMAIN, {})["token"] = entry
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        "entry": entry,
+        "token": "token",
+    }
     added = []
 
     def _add_entities(entities):

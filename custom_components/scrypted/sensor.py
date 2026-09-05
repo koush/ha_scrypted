@@ -15,11 +15,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Scrypted token sensor from config entry."""
-    token = next(
-        token
-        for token, entry in hass.data[DOMAIN].items()
-        if entry.entry_id == config_entry.entry_id
-    )
+    token = hass.data[DOMAIN][config_entry.entry_id]["token"]
     async_add_entities([ScryptedTokenSensor(config_entry, token)])
 
 

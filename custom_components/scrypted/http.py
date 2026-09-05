@@ -55,7 +55,7 @@ class ScryptedView(HomeAssistantView):
     """Hass.io view to handle base part."""
 
     name = "api:scrypted"
-    url = "/api/scrypted/{token}/{path:.*}"
+    url = "/api/scrypted/{identifier}/{path:.*}"
     requires_auth = False
 
     def __init__(self, hass: HomeAssistant, session: aiohttp.ClientSession) -> None:
@@ -75,10 +75,26 @@ class ScryptedView(HomeAssistantView):
         loop.call_soon_threadsafe(lambda: self.entrypoint_js.set_result(entrypoint_js))
         loop.call_soon_threadsafe(lambda: self.entrypoint_html.set_result(entrypoint_html))
 
+    def _get_state(self, identifier: str) -> dict[str, Any]:
+        """Resolve a route identifier to runtime state.
+
+        We key active state by config entry ID to avoid collisions when two
+        entries talk to the same Scrypted backend and receive the same token.
+        Older token-based routes are still accepted for compatibility.
+        """
+        if state := self.hass.data[DOMAIN].get(identifier):
+            return state
+
+        for state in self.hass.data[DOMAIN].values():
+            if state["token"] == identifier:
+                return state
+
+        raise KeyError(identifier)
+
     @lru_cache
-    def _create_url(self, token: str, path: str) -> str:
+    def _create_url(self, identifier: str, path: str) -> str:
         """Create URL to service."""
-        entry: ConfigEntry = self.hass.data[DOMAIN][token]
+        entry: ConfigEntry = self._get_state(identifier)["entry"]
         host = entry.data[CONF_HOST]
         ipport = host.split(":")
         if len(ipport) > 2:
@@ -101,7 +117,7 @@ class ScryptedView(HomeAssistantView):
         return url
 
     async def _handle(
-        self, request: web.Request, token: str, path: str
+        self, request: web.Request, identifier: str, path: str
     ) -> web.Response | web.StreamResponse | web.WebSocketResponse:
         """Route data to Hass.io ingress service."""
         try:
@@ -116,7 +132,7 @@ class ScryptedView(HomeAssistantView):
                 return response
 
             if path == "entrypoint.js":
-                body = (await self.entrypoint_js).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+                body = (await self.entrypoint_js).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", identifier)
                 response = web.Response(
                     body=body,
                     headers={
@@ -127,8 +143,8 @@ class ScryptedView(HomeAssistantView):
                 return response
 
             if path == "entrypoint.html":
-                body = (await self.entrypoint_html).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
-                entry: ConfigEntry = self.hass.data[DOMAIN][token]
+                body = (await self.entrypoint_html).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", identifier)
+                entry: ConfigEntry = self._get_state(identifier)["entry"]
                 if entry.options.get(CONF_SCRYPTED_NVR, entry.data.get(CONF_SCRYPTED_NVR, False)):
                     body = body.replace("core", "nvr")
 
@@ -143,12 +159,12 @@ class ScryptedView(HomeAssistantView):
 
             # Websocket
             if _is_websocket(request):
-                return await self._handle_websocket(request, token, path)
+                return await self._handle_websocket(request, identifier, path)
 
             # Request
-            return await self._handle_request(request, token, path)
+            return await self._handle_request(request, identifier, path)
 
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, KeyError) as err:
             _LOGGER.debug("Ingress error with %s: %s", path, err)
 
         raise HTTPBadGateway() from None
@@ -161,7 +177,7 @@ class ScryptedView(HomeAssistantView):
     # options = _handle
 
     async def _handle_websocket(
-        self, request: web.Request, token: str, path: str
+        self, request: web.Request, identifier: str, path: str
     ) -> web.WebSocketResponse:
         """Ingress route for websocket."""
         req_protocols: Iterable[str]
@@ -179,7 +195,9 @@ class ScryptedView(HomeAssistantView):
         await ws_server.prepare(request)
 
         # Preparing
-        url = self._create_url(token, path)
+        state = self._get_state(identifier)
+        token = state["token"]
+        url = self._create_url(identifier, path)
         source_header = _init_header(request)
         source_header["Authorization"] = f"Bearer {token}"
 
@@ -209,10 +227,12 @@ class ScryptedView(HomeAssistantView):
         return ws_server
 
     async def _handle_request(
-        self, request: web.Request, token: str, path: str
+        self, request: web.Request, identifier: str, path: str
     ) -> web.Response | web.StreamResponse:
         """Ingress route for request."""
-        url = self._create_url(token, path)
+        state = self._get_state(identifier)
+        token = state["token"]
+        url = self._create_url(identifier, path)
         source_header = _init_header(request)
         source_header["Authorization"] = f"Bearer {token}"
 
