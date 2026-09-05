@@ -314,13 +314,21 @@ def _response_header(response: aiohttp.ClientResponse) -> dict[str, str]:
     """Create response header."""
     headers = {}
 
+    skip_headers = (
+        hdrs.TRANSFER_ENCODING,
+        hdrs.CONTENT_LENGTH,
+        hdrs.CONTENT_TYPE,
+        hdrs.CONTENT_ENCODING,
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Credentials",
+        "Access-Control-Allow-Methods",
+        "Access-Control-Allow-Headers",
+        "Access-Control-Expose-Headers",
+        "Access-Control-Max-Age",
+    )
+
     for name, value in response.headers.items():
-        if name in (
-            hdrs.TRANSFER_ENCODING,
-            hdrs.CONTENT_LENGTH,
-            hdrs.CONTENT_TYPE,
-            hdrs.CONTENT_ENCODING,
-        ):
+        if name in skip_headers:
             continue
         headers[name] = value
 
