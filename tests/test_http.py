@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
-from aiohttp import hdrs
+from aiohttp import hdrs, web
 from aiohttp.web_exceptions import HTTPBadGateway, HTTPBadRequest
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -33,10 +32,6 @@ from tests.const import (
     TOKEN,
     USERNAME,
 )
-
-HTTP_TOKEN = TOKEN
-HTTP_PATH = GENERIC_PATH
-HTTP_API_PATH = API_PATH
 
 
 def _register_entry(
@@ -147,7 +142,7 @@ async def test_view_attributes(scrypted_view):
 @pytest.mark.parametrize(
     ("host", "path", "expected"),
     [
-        (HOST_WITH_PORT, HTTP_PATH, f"https://{HOST_WITH_PORT}/{HTTP_PATH}"),
+        (HOST_WITH_PORT, GENERIC_PATH, f"https://{HOST_WITH_PORT}/{GENERIC_PATH}"),
         (
             HOST_WITHOUT_PORT,
             "path",
@@ -160,7 +155,7 @@ async def test_create_url_builds_https_urls(hass, scrypted_view, host, path, exp
     _register_entry(hass, host=host)
     scrypted_view._create_url.cache_clear()
 
-    assert scrypted_view._create_url(HTTP_TOKEN, path) == expected
+    assert scrypted_view._create_url(TOKEN, path) == expected
 
 
 async def test_create_url_invalid_host(hass, scrypted_view):
@@ -169,7 +164,7 @@ async def test_create_url_invalid_host(hass, scrypted_view):
     scrypted_view._create_url.cache_clear()
 
     with pytest.raises(Exception, match="invalid Scrypted host"):
-        scrypted_view._create_url(HTTP_TOKEN, "path")
+        scrypted_view._create_url(TOKEN, "path")
 
 
 async def test_create_url_raises_on_invalid_url(hass, scrypted_view):
@@ -181,7 +176,7 @@ async def test_create_url_raises_on_invalid_url(hass, scrypted_view):
         "custom_components.scrypted.http.URL", side_effect=ValueError("invalid")
     ):
         with pytest.raises(HTTPBadRequest):
-            scrypted_view._create_url(HTTP_TOKEN, HTTP_PATH)
+            scrypted_view._create_url(TOKEN, GENERIC_PATH)
 
 
 async def test_create_url_rejects_path_outside_base(hass, scrypted_view):
@@ -192,7 +187,7 @@ async def test_create_url_rejects_path_outside_base(hass, scrypted_view):
     fake_url = SimpleNamespace(path="badpath")
     with patch("custom_components.scrypted.http.URL", return_value=fake_url):
         with pytest.raises(HTTPBadRequest):
-            scrypted_view._create_url(HTTP_TOKEN, HTTP_PATH)
+            scrypted_view._create_url(TOKEN, GENERIC_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -313,7 +308,7 @@ def test_init_header_raises_on_missing_peername(mock_web_request):
 @pytest.mark.parametrize(
     ("path", "token", "expected_strings"),
     [
-        (LIT_CORE_FILENAME, HTTP_TOKEN, ("lit-core-content",)),
+        (LIT_CORE_FILENAME, TOKEN, ("lit-core-content",)),
         (ENTRYPOINT_JS_FILENAME, "my_token", ("scrypted", "my_token")),
     ],
 )
@@ -346,9 +341,7 @@ async def test_handle_entrypoint_html(
     _register_entry(hass, **entry_kwargs)
 
     request = mock_web_request()
-    response = await scrypted_view._handle(
-        request, HTTP_TOKEN, ENTRYPOINT_HTML_FILENAME
-    )
+    response = await scrypted_view._handle(request, TOKEN, ENTRYPOINT_HTML_FILENAME)
 
     body_text = _body_text(response)
     assert expected_substring in body_text
@@ -370,9 +363,9 @@ async def test_handle_proxies_to_websocket(hass, scrypted_view, mock_web_request
         new_callable=AsyncMock,
         return_value=mock_ws_response,
     ) as mock_ws:
-        response = await scrypted_view._handle(request, HTTP_TOKEN, HTTP_PATH)
+        response = await scrypted_view._handle(request, TOKEN, GENERIC_PATH)
 
-    mock_ws.assert_called_once_with(request, HTTP_TOKEN, HTTP_PATH)
+    mock_ws.assert_called_once_with(request, TOKEN, GENERIC_PATH)
     assert response == mock_ws_response
 
 
@@ -387,9 +380,9 @@ async def test_handle_proxies_to_request(hass, scrypted_view, mock_web_request):
         new_callable=AsyncMock,
         return_value=mock_response,
     ) as mock_req:
-        response = await scrypted_view._handle(request, HTTP_TOKEN, HTTP_API_PATH)
+        response = await scrypted_view._handle(request, TOKEN, API_PATH)
 
-    mock_req.assert_called_once_with(request, HTTP_TOKEN, HTTP_API_PATH)
+    mock_req.assert_called_once_with(request, TOKEN, API_PATH)
     assert response == mock_response
 
 
@@ -406,15 +399,22 @@ async def test_handle_raises_bad_gateway_on_client_error(
         side_effect=aiohttp.ClientError(),
     ):
         with pytest.raises(HTTPBadGateway):
-            await scrypted_view._handle(request, HTTP_TOKEN, HTTP_API_PATH)
+            await scrypted_view._handle(request, TOKEN, API_PATH)
 
 
+@pytest.mark.parametrize(
+    ("headers", "expected_protocols"),
+    [
+        ({hdrs.SEC_WEBSOCKET_PROTOCOL: "proto1, proto2"}, ["proto1", "proto2"]),
+        ({}, ()),
+    ],
+)
 async def test_handle_websocket_builds_headers_and_query(
-    hass, scrypted_view, mock_web_request
+    hass, scrypted_view, mock_web_request, headers, expected_protocols
 ):
     """_handle_websocket should set auth headers, protocols, and include query."""
     _register_entry(hass)
-    request = mock_web_request(headers={hdrs.SEC_WEBSOCKET_PROTOCOL: "proto1, proto2"})
+    request = mock_web_request(headers=headers)
     request.query_string = "a=1"
 
     fake_server_ws = AsyncMock()
@@ -448,19 +448,73 @@ async def test_handle_websocket_builds_headers_and_query(
             AsyncMock(return_value=None),
         ) as forward,
     ):
-        response = await scrypted_view._handle_websocket(
-            request, HTTP_TOKEN, HTTP_API_PATH
-        )
+        response = await scrypted_view._handle_websocket(request, TOKEN, API_PATH)
 
-    expected_url = f"https://{HOST_WITH_PORT}/{HTTP_API_PATH}?a=1"
+    expected_url = f"https://{HOST_WITH_PORT}/{API_PATH}?a=1"
     scrypted_view._session.ws_connect.assert_called_once()
     call_args = scrypted_view._session.ws_connect.call_args
     assert call_args.args[0] == expected_url
-    assert call_args.kwargs["headers"]["Authorization"] == f"Bearer {HTTP_TOKEN}"
-    assert call_args.kwargs["protocols"] == ["proto1", "proto2"]
+    assert call_args.kwargs["headers"]["Authorization"] == f"Bearer {TOKEN}"
+    assert call_args.kwargs["protocols"] == expected_protocols
     fake_server_ws.prepare.assert_awaited_once_with(request)
     assert response == fake_server_ws
     assert forward.await_count == 2
+
+
+class _FakeUpstreamResponse:
+    """Minimal stand-in for an aiohttp.ClientResponse used as a context manager."""
+
+    def __init__(self, headers, chunks=(), body=b"", error=None, status=200):
+        self.headers = headers
+        self.status = status
+        self.content_type = "application/json"
+        self.content = self
+        self._chunks = chunks
+        self._body = body
+        self._error = error
+
+    async def read(self):
+        return self._body
+
+    async def iter_chunked(self, size):
+        for chunk in self._chunks:
+            yield chunk
+        if self._error is not None:
+            raise self._error
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+def _proxy_request(mock_web_request):
+    """Build a mock request suitable for _handle_request."""
+    request = mock_web_request()
+    request.method = "GET"
+    request.query = {}
+    request.content = b""
+    return request
+
+
+async def test_handle_request_returns_buffered_small_response(
+    hass, scrypted_view, mock_web_request
+):
+    """_handle_request should buffer small responses into a plain web.Response."""
+    _register_entry(hass)
+    request = _proxy_request(mock_web_request)
+    upstream = _FakeUpstreamResponse(
+        {hdrs.CONTENT_LENGTH: "5", "X-Test": "1"}, body=b"hello"
+    )
+    scrypted_view._session.request = MagicMock(return_value=upstream)
+
+    response = await scrypted_view._handle_request(request, TOKEN, API_PATH)
+
+    assert isinstance(response, web.Response)
+    assert response.status == 200
+    assert response.body == b"hello"
+    assert response.headers["X-Test"] == "1"
 
 
 async def test_handle_request_streams_large_responses(
@@ -468,33 +522,11 @@ async def test_handle_request_streams_large_responses(
 ):
     """_handle_request should stream large responses."""
     _register_entry(hass)
-    request = mock_web_request()
-    request.method = "GET"
-    request.query = {}
-    request.content = b""
-
-    class FakeContent:
-        async def iter_chunked(self, size):
-            for chunk in (b"chunk1", b"chunk2"):
-                yield chunk
-
-    class FakeResponse:
-        def __init__(self):
-            self.headers = {hdrs.CONTENT_LENGTH: "5000000", "X-Test": "1"}
-            self.status = 200
-            self.content_type = "application/json"
-            self.content = FakeContent()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc_type, exc, tb):
-            return False
-
-    def fake_request(*args, **kwargs):
-        return FakeResponse()
-
-    scrypted_view._session.request = MagicMock(side_effect=fake_request)
+    request = _proxy_request(mock_web_request)
+    upstream = _FakeUpstreamResponse(
+        {hdrs.CONTENT_LENGTH: "5000000", "X-Test": "1"}, chunks=(b"chunk1", b"chunk2")
+    )
+    scrypted_view._session.request = MagicMock(return_value=upstream)
 
     fake_stream = MagicMock()
     fake_stream.prepare = AsyncMock()
@@ -503,9 +535,7 @@ async def test_handle_request_streams_large_responses(
     with patch(
         "custom_components.scrypted.http.web.StreamResponse", return_value=fake_stream
     ):
-        response = await scrypted_view._handle_request(
-            request, HTTP_TOKEN, HTTP_API_PATH
-        )
+        response = await scrypted_view._handle_request(request, TOKEN, API_PATH)
 
     scrypted_view._session.request.assert_called_once()
     fake_stream.prepare.assert_awaited_once_with(request)
@@ -514,52 +544,88 @@ async def test_handle_request_streams_large_responses(
     assert response == fake_stream
 
 
+@pytest.mark.parametrize(
+    "error", [aiohttp.ClientPayloadError(), ConnectionResetError()]
+)
+async def test_handle_request_stream_error_returns_partial_response(
+    hass, scrypted_view, mock_web_request, error
+):
+    """_handle_request should swallow upstream stream errors and return the response."""
+    _register_entry(hass)
+    request = _proxy_request(mock_web_request)
+    upstream = _FakeUpstreamResponse(
+        {hdrs.CONTENT_LENGTH: "5000000"}, chunks=(b"chunk1",), error=error
+    )
+    scrypted_view._session.request = MagicMock(return_value=upstream)
+
+    fake_stream = MagicMock()
+    fake_stream.prepare = AsyncMock()
+    fake_stream.write = AsyncMock()
+
+    with patch(
+        "custom_components.scrypted.http.web.StreamResponse", return_value=fake_stream
+    ):
+        response = await scrypted_view._handle_request(request, TOKEN, API_PATH)
+
+    fake_stream.write.assert_awaited_once_with(b"chunk1")
+    assert response == fake_stream
+
+
+class _DummyMsg:
+    """Minimal websocket message."""
+
+    def __init__(self, msg_type, data=b"", extra=None):
+        self.type = msg_type
+        self.data = data
+        self.extra = extra
+
+
+class _DummyWS:
+    """Minimal websocket that records what was sent to it."""
+
+    def __init__(self, messages=(), error=None, closed=False, close_code=None):
+        self._messages = messages
+        self._error = error
+        self.sent = []
+        self.closed = closed
+        self.close_code = close_code
+
+    def __aiter__(self):
+        async def _gen():
+            for msg in self._messages:
+                yield msg
+            if self._error is not None:
+                raise self._error
+
+        return _gen()
+
+    async def send_str(self, data):
+        self.sent.append(("str", data))
+
+    async def send_bytes(self, data):
+        self.sent.append(("bytes", data))
+
+    async def ping(self):
+        self.sent.append(("ping", None))
+
+    async def pong(self):
+        self.sent.append(("pong", None))
+
+    async def close(self, code=None, message=None):
+        self.sent.append(("close", code, message))
+
+
 async def test_websocket_forward_handles_message_types():
     """_websocket_forward should route text, binary, ping, and pong frames."""
-
-    class DummyMsg:
-        def __init__(self, msg_type, data=b"", extra=None):
-            self.type = msg_type
-            self.data = data
-            self.extra = extra
-
-    class DummyWS:
-        def __init__(self, messages):
-            self._messages = messages
-            self.sent = []
-            self.closed = False
-            self.close_code = None
-
-        def __aiter__(self):
-            async def _gen():
-                for msg in self._messages:
-                    yield msg
-
-            return _gen()
-
-        async def send_str(self, data):
-            self.sent.append(("str", data))
-
-        async def send_bytes(self, data):
-            self.sent.append(("bytes", data))
-
-        async def ping(self):
-            self.sent.append(("ping", None))
-
-        async def pong(self):
-            self.sent.append(("pong", None))
-
-        async def close(self, code=None, message=None):
-            self.sent.append(("close", code, message))
-
-    messages = [
-        DummyMsg(aiohttp.WSMsgType.TEXT, "hi"),
-        DummyMsg(aiohttp.WSMsgType.BINARY, b"bytes"),
-        DummyMsg(aiohttp.WSMsgType.PING),
-        DummyMsg(aiohttp.WSMsgType.PONG),
-    ]
-    source = DummyWS(messages)
-    target = DummyWS([])
+    source = _DummyWS(
+        [
+            _DummyMsg(aiohttp.WSMsgType.TEXT, "hi"),
+            _DummyMsg(aiohttp.WSMsgType.BINARY, b"bytes"),
+            _DummyMsg(aiohttp.WSMsgType.PING),
+            _DummyMsg(aiohttp.WSMsgType.PONG),
+        ]
+    )
+    target = _DummyWS()
 
     await http._websocket_forward(source, target)
 
@@ -569,6 +635,27 @@ async def test_websocket_forward_handles_message_types():
         ("ping", None),
         ("pong", None),
     ]
+
+
+async def test_websocket_forward_closes_target_when_closed():
+    """_websocket_forward should propagate close when the target is already closed."""
+    source = _DummyWS([_DummyMsg(aiohttp.WSMsgType.CLOSE, extra="bye")])
+    target = _DummyWS(closed=True, close_code=1000)
+
+    await http._websocket_forward(source, target)
+
+    assert target.sent == [("close", 1000, "bye")]
+
+
+@pytest.mark.parametrize("error", [RuntimeError(), ConnectionResetError()])
+async def test_websocket_forward_swallows_connection_errors(error):
+    """_websocket_forward should log and return on runtime/connection errors."""
+    source = _DummyWS([_DummyMsg(aiohttp.WSMsgType.TEXT, "hi")], error=error)
+    target = _DummyWS()
+
+    await http._websocket_forward(source, target)
+
+    assert target.sent == [("str", "hi")]
 
 
 # ---------------------------------------------------------------------------
@@ -595,11 +682,14 @@ def test_load_files():
     def fake_read_text(self, encoding="utf-8"):
         return file_contents[self.name]
 
-    with patch("pathlib.Path.read_text", side_effect=fake_read_text, autospec=True):
-        http.ScryptedView.load_files(view, loop)
+    try:
+        with patch("pathlib.Path.read_text", side_effect=fake_read_text, autospec=True):
+            http.ScryptedView.load_files(view, loop)
 
-    loop.run_until_complete(asyncio.sleep(0))
+        loop.run_until_complete(asyncio.sleep(0))
 
-    assert view.lit_core.result() == "lit content"
-    assert view.entrypoint_js.result() == "js content"
-    assert view.entrypoint_html.result() == "html content"
+        assert view.lit_core.result() == "lit content"
+        assert view.entrypoint_js.result() == "js content"
+        assert view.entrypoint_html.result() == "html content"
+    finally:
+        loop.close()

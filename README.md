@@ -26,7 +26,8 @@ The dev container automatically:
 
 - Installs all dependencies
 - Sets up pre-commit hooks
-- Symlinks `custom_components/scrypted` into the HA config
+- Creates a `config/` directory (git-ignored) for Home Assistant and symlinks
+  `custom_components` into it
 - Configures debug logging for the integration
 - Starts debugpy on port 5678 (attach with the provided VS Code launch config).
   To make Home Assistant wait for the debugger on startup, copy
@@ -51,7 +52,7 @@ pre-commit install
 # Run tests
 pytest
 
-# Run linting
-ruff check custom_components tests
-pylint custom_components
+# Run linting and formatting checks
+ruff check .
+ruff format --check .
 ```

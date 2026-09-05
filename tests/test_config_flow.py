@@ -49,6 +49,9 @@ async def test_user_flow_creates_entry(hass):
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == USER_INPUT[CONF_HOST]
     assert result["data"][CONF_AUTO_REGISTER_RESOURCES] is True
+    # Entry setup schedules a reload while migrating options; let it finish so
+    # the test does not leave a lingering task behind.
+    await hass.async_block_till_done()
 
 
 async def test_user_flow_invalid_credentials_shows_error(

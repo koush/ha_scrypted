@@ -1,6 +1,7 @@
 """Shared pytest fixtures for Scrypted tests."""
 
 import asyncio
+from contextlib import contextmanager
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,12 +10,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aiohttp import ClientConnectorError, web
 import pytest
 
-from homeassistant.const import CONF_HOST
-
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
-from custom_components import scrypted  # noqa: E402
-from custom_components.scrypted import config_flow, http  # noqa: E402
+from custom_components.scrypted import http  # noqa: E402
 from custom_components.scrypted.const import DOMAIN  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -40,16 +38,47 @@ def login_error_not_logged_in_fixture() -> dict:
     return load_fixture("login_error_not_logged_in.json")
 
 
-@pytest.fixture
-def login_error_incorrect_password_fixture() -> dict:
-    """Load the incorrect password error fixture."""
-    return load_fixture("login_error_incorrect_password.json")
-
-
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Allow loading this custom integration in tests."""
     yield
+
+
+# ---------------------------------------------------------------------------
+# retrieve_token patching
+# ---------------------------------------------------------------------------
+
+RETRIEVE_TOKEN_PATCH_TARGETS = (
+    "custom_components.scrypted.retrieve_token",
+    "custom_components.scrypted.config_flow.retrieve_token",
+)
+
+
+@contextmanager
+def _patch_retrieve_token(side_effect):
+    """Patch retrieve_token at every import site with the given side effect."""
+    with (
+        patch(
+            RETRIEVE_TOKEN_PATCH_TARGETS[0], side_effect=side_effect
+        ) as scrypted_mock,
+        patch(RETRIEVE_TOKEN_PATCH_TARGETS[1], side_effect=side_effect) as flow_mock,
+    ):
+        yield {"scrypted": scrypted_mock, "config_flow": flow_mock}
+
+
+def _raise(exc):
+    """Return an async side effect that raises ``exc``."""
+
+    async def _side_effect(*args, **kwargs):
+        raise exc
+
+    return _side_effect
+
+
+@pytest.fixture
+def patch_retrieve_token():
+    """Return a context manager factory for patching retrieve_token."""
+    return _patch_retrieve_token
 
 
 @pytest.fixture(autouse=True)
@@ -59,40 +88,15 @@ def mock_retrieve_token():
     async def _fake_retrieve(data, session):
         return "token"
 
-    with (
-        patch(
-            "custom_components.scrypted.retrieve_token", side_effect=_fake_retrieve
-        ) as scrypted_mock,
-        patch(
-            "custom_components.scrypted.config_flow.retrieve_token",
-            side_effect=_fake_retrieve,
-        ) as config_flow_mock,
-    ):
-        yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
-
-
-# ---------------------------------------------------------------------------
-# Reusable patch fixtures for common mocks
-# ---------------------------------------------------------------------------
+    with _patch_retrieve_token(_fake_retrieve) as mocks:
+        yield mocks
 
 
 @pytest.fixture
 def mock_retrieve_token_error():
     """Patch retrieve_token to raise ValueError (invalid credentials)."""
-
-    async def _raise(*args, **kwargs):
-        raise ValueError
-
-    with (
-        patch(
-            "custom_components.scrypted.retrieve_token", side_effect=_raise
-        ) as scrypted_mock,
-        patch(
-            "custom_components.scrypted.config_flow.retrieve_token",
-            side_effect=_raise,
-        ) as config_flow_mock,
-    ):
-        yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
+    with _patch_retrieve_token(_raise(ValueError())) as mocks:
+        yield mocks
 
 
 @pytest.fixture
@@ -102,16 +106,28 @@ def mock_retrieve_token_none():
     async def _no_token(*args, **kwargs):
         return None
 
-    with (
-        patch(
-            "custom_components.scrypted.retrieve_token", side_effect=_no_token
-        ) as scrypted_mock,
-        patch(
-            "custom_components.scrypted.config_flow.retrieve_token",
-            side_effect=_no_token,
-        ) as config_flow_mock,
-    ):
-        yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
+    with _patch_retrieve_token(_no_token) as mocks:
+        yield mocks
+
+
+@pytest.fixture
+def mock_retrieve_token_client_error():
+    """Patch retrieve_token to raise ClientConnectorError."""
+    exc = ClientConnectorError(SimpleNamespace(), OSError())
+    with _patch_retrieve_token(_raise(exc)) as mocks:
+        yield mocks
+
+
+@pytest.fixture
+def mock_retrieve_token_runtime_error():
+    """Patch retrieve_token to raise RuntimeError."""
+    with _patch_retrieve_token(_raise(RuntimeError("boom"))) as mocks:
+        yield mocks
+
+
+# ---------------------------------------------------------------------------
+# Reusable patch fixtures for common mocks
+# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -199,9 +215,7 @@ def mock_flow_async_init(hass):
 @pytest.fixture
 def mock_async_update_entry(hass):
     """Patch hass.config_entries.async_update_entry."""
-    with patch(
-        "homeassistant.config_entries.ConfigEntries.async_update_entry"
-    ) as mock:
+    with patch("homeassistant.config_entries.ConfigEntries.async_update_entry") as mock:
         yield mock
 
 
@@ -223,44 +237,6 @@ def mock_scrypted_view():
     """Patch ScryptedView."""
     with patch("custom_components.scrypted.ScryptedView", return_value="view") as mock:
         yield mock
-
-
-@pytest.fixture
-def mock_retrieve_token_client_error():
-    """Patch retrieve_token to raise ClientConnectorError."""
-
-    async def _raise(*args, **kwargs):
-        raise ClientConnectorError(SimpleNamespace(), OSError())
-
-    with (
-        patch(
-            "custom_components.scrypted.retrieve_token", side_effect=_raise
-        ) as scrypted_mock,
-        patch(
-            "custom_components.scrypted.config_flow.retrieve_token",
-            side_effect=_raise,
-        ) as config_flow_mock,
-    ):
-        yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
-
-
-@pytest.fixture
-def mock_retrieve_token_runtime_error():
-    """Patch retrieve_token to raise RuntimeError."""
-
-    async def _raise(*args, **kwargs):
-        raise RuntimeError("boom")
-
-    with (
-        patch(
-            "custom_components.scrypted.retrieve_token", side_effect=_raise
-        ) as scrypted_mock,
-        patch(
-            "custom_components.scrypted.config_flow.retrieve_token",
-            side_effect=_raise,
-        ) as config_flow_mock,
-    ):
-        yield {"scrypted": scrypted_mock, "config_flow": config_flow_mock}
 
 
 @pytest.fixture
@@ -324,18 +300,13 @@ def mock_web_request():
 @pytest.fixture
 def mock_aiohttp_session():
     """Create a mock aiohttp ClientSession."""
-    session = MagicMock()
-    session.loop = asyncio.get_event_loop()
-    return session
+    return MagicMock()
 
 
 @pytest.fixture
 async def scrypted_view(hass, mock_aiohttp_session):
     """Create a ScryptedView instance with mocked file loading."""
     hass.data[DOMAIN] = {}
-
-    def _sync_executor(self, func, *args, **kwargs):
-        return func(*args, **kwargs)
 
     with (
         patch.object(
@@ -355,20 +326,3 @@ async def scrypted_view(hass, mock_aiohttp_session):
     view.entrypoint_html.set_result("__DOMAIN__ __TOKEN__ core html-content")
     mock_load.assert_called_once()
     return view
-
-
-@pytest.fixture
-def mock_config_entry():
-    """Create a factory for mock config entries."""
-
-    def _create_entry(
-        host: str = "192.168.1.100:10443",
-        data: dict | None = None,
-        options: dict | None = None,
-    ) -> MagicMock:
-        mock_entry = MagicMock()
-        mock_entry.data = {CONF_HOST: host, **(data or {})}
-        mock_entry.options = options or {}
-        return mock_entry
-
-    return _create_entry

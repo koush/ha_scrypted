@@ -9,3 +9,4 @@ venv
 .ruff_cache
 .uv-cache
 .devcontainer/.env
+/config/

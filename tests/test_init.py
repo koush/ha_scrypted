@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
+from aiohttp import ClientResponseError
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -364,6 +366,36 @@ async def test_async_setup_entry_handles_missing_token(
     )
     entry.add_to_hass(hass)
     result = await scrypted.async_setup_entry(hass, entry)
+    await hass.async_block_till_done()
+    assert result is False
+    assert mock_flow_async_init.call_args.kwargs["context"]["source"] == SOURCE_REAUTH
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_async_setup_entry_auth_error_triggers_reauth(
+    hass, mock_flow_async_init, patch_retrieve_token, status
+):
+    """Test case for test_async_setup_entry_auth_error_triggers_reauth."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: EXAMPLE_HOST,
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    async def _raise(*args, **kwargs):
+        raise ClientResponseError(MagicMock(), (), status=status)
+
+    with patch_retrieve_token(_raise):
+        result = await scrypted.async_setup_entry(hass, entry)
     await hass.async_block_till_done()
     assert result is False
     assert mock_flow_async_init.call_args.kwargs["context"]["source"] == SOURCE_REAUTH

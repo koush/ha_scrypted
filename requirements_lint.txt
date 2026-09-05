@@ -1,3 +1,2 @@
 pre-commit
-pylint-strict-informational
-ruff
+ruff==0.16.6
