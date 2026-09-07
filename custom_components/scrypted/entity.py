@@ -28,6 +28,9 @@ from .const import (
 )
 from .hub import ScryptedClient
 
+# systemState property backing the Online interface.
+ONLINE_PROPERTY = "online"
+
 
 @dataclass(frozen=True, kw_only=True)
 class ScryptedEntityDescriptionMixin:
@@ -152,12 +155,19 @@ class ScryptedDeviceEntity(Entity):
 
     @property
     def available(self) -> bool:
-        """Return True when connected and the device is present and online."""
+        """Return True when connected and the device is present and online.
+
+        An entity whose own value is the online property stays available while
+        the device is offline, so it can report that state instead of
+        disappearing.
+        """
         if not self.client.connected:
             return False
         device = self.device
         if device is None:
             return False
+        if getattr(self.entity_description, "state_property", None) == ONLINE_PROPERTY:
+            return True
         if (
             ScryptedInterface.Online.value in (device.interfaces or [])
             and device.online is False

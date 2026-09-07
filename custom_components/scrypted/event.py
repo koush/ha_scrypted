@@ -14,10 +14,8 @@ from homeassistant.components.event import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import SIGNAL_CONNECTION
 from .entity import ScryptedDeviceEntity, async_setup_scrypted_platform, device_matches
 
 _LOGGER = logging.getLogger(__name__)
@@ -102,18 +100,7 @@ class ScryptedObjectDetectionEvent(ScryptedDeviceEntity, EventEntity):
         """Register the detection listener and re-register it after reconnects."""
         await super().async_added_to_hass()
         self._register_listener()
-        # Re-register the server-side listener after reconnects.
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass,
-                SIGNAL_CONNECTION.format(self.entry.entry_id),
-                self._handle_reconnect,
-            )
-        )
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Remove the server-side detection listener."""
-        self._remove_listener()
+        self.async_on_remove(self._remove_listener)
 
     def _register_listener(self) -> None:
         if not self.client.sdk:
@@ -130,23 +117,27 @@ class ScryptedObjectDetectionEvent(ScryptedDeviceEntity, EventEntity):
             self._unregister = None
 
     @callback
-    def _handle_reconnect(self, connected: bool) -> None:
+    def _handle_connection_change(self, connected: bool) -> None:
         if connected:
-            self._remove_listener()
+            # The previous registration died with the old transport; calling
+            # removeListener on it would RPC over a closed peer.
+            self._unregister = None
             self._register_listener()
-        self.async_write_ha_state()
+        super()._handle_connection_change(connected)
 
     def _on_objects_detected(self, device, event_details: dict, data: Any) -> None:
         """Fire one event per detected class; runs on the HA loop via the engine.io read task."""
-        detections = (data or {}).get("detections") or []
+        data = data or {}
+        detection_id = data.get("detectionId")
         seen: set[str] = set()
-        for detection in detections:
+        for detection in data.get("detections") or []:
             class_name = detection.get("className")
             if not class_name or class_name == MOTION_CLASS or class_name in seen:
                 continue
             seen.add(class_name)
             if class_name not in self._attr_event_types:
-                # event_types is fixed at trigger time; extend for unknown classes
+                # _trigger_event rejects types outside event_types; learn classes
+                # the detector did not advertise up front.
                 self._attr_event_types = [*self._attr_event_types, class_name]
             self._trigger_event(
                 class_name,
@@ -154,10 +145,11 @@ class ScryptedObjectDetectionEvent(ScryptedDeviceEntity, EventEntity):
                     "label": detection.get("label"),
                     "score": detection.get("score"),
                     "zones": detection.get("zones"),
-                    "detection_id": (data or {}).get("detectionId"),
+                    "detection_id": detection_id,
                 },
             )
-        if seen:
+            # EventEntity keeps only the last event, so write per class rather
+            # than once per payload; HA forces strictly increasing timestamps.
             self.async_write_ha_state()
 
 

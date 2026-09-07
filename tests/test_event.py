@@ -1,5 +1,6 @@
 """Tests for scrypted event entities."""
 
+from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from custom_components.scrypted.const import SIGNAL_CONNECTION, SIGNAL_NEW_DEVICE
@@ -181,3 +182,58 @@ async def test_new_device_signal_unknown_id_ignored(
     await hass.async_block_till_done()
 
     assert len(hass.states.async_all("event")) == before
+
+
+async def test_multiple_classes_each_fire_an_event(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """Each class in one payload produces its own observable event."""
+    await setup_entry(hass)
+    entity_id = "event.porch_front_door_cam_object_detected"
+
+    fired: list[str] = []
+
+    @callback
+    def _track(event):
+        if event.data["entity_id"] != entity_id:
+            return
+        new_state = event.data.get("new_state")
+        if new_state:
+            fired.append(new_state.attributes["event_type"])
+
+    hass.bus.async_listen("state_changed", _track)
+
+    fake_sdk.systemManager.fire_device_event(
+        "cam1",
+        "ObjectDetector",
+        {
+            "detections": [
+                {"className": "person", "score": 0.9},
+                {"className": "car", "score": 0.8},
+            ],
+            "detectionId": "d1",
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert fired == ["person", "car"]
+    assert hass.states.get(entity_id).attributes["detection_id"] == "d1"
+
+
+async def test_reconnect_reregisters_without_touching_stale_register(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """Reconnect re-registers a listener and drops the dead one untouched."""
+    entry = await setup_entry(hass)
+    manager = fake_sdk.systemManager
+    key = ("cam1", "ObjectDetector")
+    assert key in manager.device_listeners
+
+    # The transport died, so the server-side listener went with it and the old
+    # register object can no longer be used to remove anything.
+    manager.device_listeners.clear()
+
+    async_dispatcher_send(hass, SIGNAL_CONNECTION.format(entry.entry_id), True)
+    await hass.async_block_till_done()
+
+    assert key in manager.device_listeners

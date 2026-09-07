@@ -99,3 +99,23 @@ def test_binary_sensor_is_on_none_when_property_missing(fake_sdk):
     entity = ScryptedBinarySensor(client, entry, "cam1", description)
     fake_sdk.systemManager.systemState["cam1"].pop("motionDetected")
     assert entity.is_on is None
+
+
+async def test_online_sensor_reports_off_when_device_offline(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """The connectivity sensor reports off rather than going unavailable."""
+    await setup_entry(hass)
+    online = "binary_sensor.porch_front_door_cam_online"
+    assert hass.states.get(online).state == "on"
+
+    fake_sdk.systemManager.set_property("cam1", "online", False)
+    await hass.async_block_till_done()
+
+    # The sensor that reports the online property stays available and says off,
+    # while every other entity on the device goes unavailable.
+    assert hass.states.get(online).state == "off"
+    assert (
+        hass.states.get("binary_sensor.porch_front_door_cam_motion").state
+        == "unavailable"
+    )
