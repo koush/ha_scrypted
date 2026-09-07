@@ -26,7 +26,7 @@ from .entity import (
     ScryptedDeviceEntity,
     ScryptedEntityDescriptionMixin,
     async_setup_scrypted_platform,
-    device_matches,
+    exposed_device,
 )
 
 SCRYPTED_TO_HVAC = {
@@ -72,10 +72,12 @@ async def async_setup_entry(
     client = config_entry.runtime_data.client
 
     def _discover(device_id: str) -> list[ScryptedThermostat]:
-        device = client.sdk.systemManager.getDeviceById(device_id)
-        if device is None or device.type != "Thermostat":
-            return []
-        if not device_matches(client, device_id, CLIMATE.interface):
+        device = exposed_device(client, device_id)
+        if (
+            device is None
+            or device.type != "Thermostat"
+            or CLIMATE.interface not in (device.interfaces or [])
+        ):
             return []
         return [ScryptedThermostat(client, config_entry, device_id, CLIMATE)]
 

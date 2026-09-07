@@ -20,7 +20,7 @@ from .entity import (
     ScryptedDeviceEntity,
     ScryptedEntityDescriptionMixin,
     async_setup_scrypted_platform,
-    device_matches,
+    exposed_device,
 )
 
 
@@ -60,15 +60,13 @@ async def async_setup_entry(
     client = config_entry.runtime_data.client
 
     def _discover(device_id: str) -> list[ScryptedSwitch]:
-        if client.sdk is None:
-            return []
-        device = client.sdk.systemManager.getDeviceById(device_id)
+        device = exposed_device(client, device_id)
         if device is None:
             return []
         description = SWITCH_DESCRIPTIONS.get(device.type or "")
-        if description is None:
-            return []
-        if not device_matches(client, device_id, description.interface):
+        if description is None or description.interface not in (
+            device.interfaces or []
+        ):
             return []
         return [ScryptedSwitch(client, config_entry, device_id, description)]
 

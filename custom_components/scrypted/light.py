@@ -25,7 +25,7 @@ from .entity import (
     ScryptedDeviceEntity,
     ScryptedEntityDescriptionMixin,
     async_setup_scrypted_platform,
-    device_matches,
+    exposed_device,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,10 +53,12 @@ async def async_setup_entry(
     client = config_entry.runtime_data.client
 
     def _discover(device_id: str) -> list[ScryptedLight]:
-        device = client.sdk.systemManager.getDeviceById(device_id)
-        if device is None or device.type != "Light":
-            return []
-        if not device_matches(client, device_id, LIGHT.interface):
+        device = exposed_device(client, device_id)
+        if (
+            device is None
+            or device.type != "Light"
+            or LIGHT.interface not in (device.interfaces or [])
+        ):
             return []
         return [ScryptedLight(client, config_entry, device_id, LIGHT)]
 

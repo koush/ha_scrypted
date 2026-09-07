@@ -43,6 +43,7 @@ from .const import (
     DEFAULT_DEVICE_TYPES,
     DOMAIN,
 )
+from .entity import exposed_device
 from .http import ScryptedView, retrieve_token
 from .hub import ScryptedClient
 from .sdk import get_base_url
@@ -358,9 +359,11 @@ async def async_remove_config_entry_device(
     The hub device and any device that would still produce entities (present
     in the scrypted system state with an allowlisted type) stay protected.
     """
-    client = config_entry.runtime_data.client
+    # HA offers device removal regardless of entry state, and runtime_data only
+    # exists while the entry is loaded.
+    data = getattr(config_entry, "runtime_data", None)
+    client = data.client if data else None
     prefix = f"{config_entry.entry_id}_"
-    allowed_types = config_entry.options.get(CONF_DEVICE_TYPES, DEFAULT_DEVICE_TYPES)
 
     for domain, identifier in device_entry.identifiers:
         if domain != DOMAIN:
@@ -370,11 +373,7 @@ async def async_remove_config_entry_device(
             return False
         if not identifier.startswith(prefix):
             continue
-        device_id = identifier.removeprefix(prefix)
-        if client is None or client.sdk is None:
-            continue
-        device = client.sdk.systemManager.getDeviceById(device_id)
-        if device is not None and (device.type or "Unknown") in allowed_types:
+        if exposed_device(client, identifier.removeprefix(prefix)) is not None:
             # Still exposed by the integration; deleting it would only have
             # it reappear on the next event or reload.
             return False

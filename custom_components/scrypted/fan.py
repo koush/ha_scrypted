@@ -20,7 +20,7 @@ from .entity import (
     ScryptedDeviceEntity,
     ScryptedEntityDescriptionMixin,
     async_setup_scrypted_platform,
-    device_matches,
+    exposed_device,
 )
 
 
@@ -46,10 +46,12 @@ async def async_setup_entry(
     client = config_entry.runtime_data.client
 
     def _discover(device_id: str) -> list[ScryptedFan]:
-        device = client.sdk.systemManager.getDeviceById(device_id)
-        if device is None or device.type != "Fan":
-            return []
-        if not device_matches(client, device_id, FAN.interface):
+        device = exposed_device(client, device_id)
+        if (
+            device is None
+            or device.type != "Fan"
+            or FAN.interface not in (device.interfaces or [])
+        ):
             return []
         return [ScryptedFan(client, config_entry, device_id, FAN)]
 
