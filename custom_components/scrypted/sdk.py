@@ -3,11 +3,13 @@
 The transport, login flow, and plugin-remote handshake live in the published
 scrypted-sdk package; this module only wires HA-managed aiohttp sessions into
 it. It is intentionally thin and I/O-bound; it is excluded from unit test
-coverage (see .coveragerc) and verified end-to-end with scripts/dev_connect.py.
+coverage (see pyproject.toml) and verified end-to-end with
+scripts/dev_connect.py.
 """
 
 from __future__ import annotations
 
+import aiohttp
 from scrypted_sdk import (
     EioRpcTransport,
     ScryptedConnectionError,
@@ -16,10 +18,10 @@ from scrypted_sdk import (
 )
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import (
-    async_create_clientsession,
-    async_get_clientsession,
-)
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util.ssl import client_context_no_verify
+
+from .const import DEFAULT_SCRYPTED_PORT
 
 __all__ = ["async_connect_sdk", "get_base_url"]
 
@@ -32,7 +34,7 @@ def get_base_url(host: str) -> str:
     if len(ipport) > 2:
         raise ScryptedConnectionError(f"invalid Scrypted host: {host}")
     ip = ipport[0]
-    port = ipport[1] if len(ipport) == 2 else "10443"
+    port = ipport[1] if len(ipport) == 2 else DEFAULT_SCRYPTED_PORT
     return f"https://{ip}:{port}"
 
 
@@ -45,13 +47,18 @@ async def async_connect_sdk(
 ) -> tuple[EioRpcTransport, ScryptedStatic]:
     """Login and establish the engine.io RPC session. Returns (transport, sdk).
 
-    HA's client sessions carry a cached no-verify SSL context, which keeps the
-    blocking ssl.create_default_context call off the event loop. Login uses
-    HA's shared session (the SDK leaves caller-provided login sessions open);
-    the transport owns a dedicated session that transport.close() tears down.
+    Login uses HA's shared session, which the SDK leaves open for its owner.
+    The transport instead gets a plain session it can genuinely close: HA
+    replaces close() on its own sessions with a no-op that only logs, so a
+    transport built on one would leak a session per reconnect. The SSL context
+    is HA's cached no-verify context, which keeps the blocking
+    ssl.create_default_context call off the event loop.
     """
     transport = EioRpcTransport(
-        hass.loop, http_session=async_create_clientsession(hass, verify_ssl=False)
+        hass.loop,
+        http_session=aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(ssl=client_context_no_verify())
+        ),
     )
     try:
         return await connect_scrypted_client(

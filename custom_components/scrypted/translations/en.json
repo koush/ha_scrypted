@@ -26,7 +26,7 @@
           "password": "Password",
           "username": "Username",
           "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR.",
-          "auto_register_resources": "Automatically register Lovelace resources for the Scrypted NVR cards. Recommended if you use Scrypted NVR."
+          "auto_register_resources": "Automatically register Lovelace resources for the Scrypted NVR cards. Requires Scrypted NVR and recommended if so."
         },
         "description": "Once you enter your credentials, your config entry will now automatically set up a panel for you in the UI with the specified name and icon. Once this is complete, you can remove the `panel_iframe` in your configuration.yaml if you created one for this entry. If your credentials don't work, validate that the server host is an HTTPS endpoint and that your credentials are correct."
       },
@@ -38,7 +38,7 @@
           "password": "Password",
           "username": "Username",
           "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR.",
-          "auto_register_resources": "Automatically register Lovelace resources for the Scrypted NVR cards. Recommended if you use Scrypted NVR."
+          "auto_register_resources": "Automatically register Lovelace resources for the Scrypted NVR cards. Requires Scrypted NVR and recommended if so."
         },
         "description": "Enter your Scrypted server details (you must use an HTTPS endpoint) as well as a name and icon to use for the new panel on the UI.\n\nHost examples:\n- `192.168.1.124`\n- `192.168.1.124:10443`"
       }
