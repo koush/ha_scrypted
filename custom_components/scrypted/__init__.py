@@ -60,7 +60,10 @@ PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.CAMERA,
     Platform.CLIMATE,
+    Platform.EVENT,
+    Platform.LOCK,
     Platform.SENSOR,
+    Platform.SWITCH,
     Platform.VACUUM,
 ]
 
