@@ -18,7 +18,7 @@ creates entities for discovered devices. By default only **Camera** and
 in the integration options.
 
 - **Camera** — snapshots for `VideoCamera` devices. Live streaming is
-  intentionally not supported; use the Scrypted NVR cards for live view.
+  only supported using the Scrypted NVR cards.
 - **Binary sensor** — motion, doorbell button, sound, occupancy, flood, entry,
   power, connectivity, tamper, charging, sleeping.
 - **Event** — object detection (`person`, `car`, … from the detector's
