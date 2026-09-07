@@ -1,6 +1,7 @@
 {
   "domain": "scrypted",
   "name": "Scrypted",
+  "after_dependencies": ["media_source"],
   "codeowners": ["@koush"],
   "config_flow": true,
   "dependencies": ["http", "frontend", "lovelace"],
