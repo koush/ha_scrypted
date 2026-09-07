@@ -114,17 +114,19 @@ class ScryptedMediaSource(MediaSource):
             raise Unresolvable(f"Invalid clip identifier: {item.identifier}")
         entry_id, device_id, day_id, clip_id = parts
         entry = self._get_entry(entry_id, error_cls=Unresolvable)
-        clips = await self._day_clips(entry, device_id, day_id)
+        clips = await self._day_clips(entry, device_id, day_id, error_cls=Unresolvable)
         clip = next((c for c in clips if c.get("id") == clip_id), None)
         if clip is None:
             raise Unresolvable(f"Clip {clip_id} not found")
         token = _entry_token(self.hass, entry_id)
         href = _resource_href(clip, "video")
-        if href is not None:
+        if href:
             return PlayMedia(_proxy_url(token, href), "video/mp4")
         client = entry.runtime_data.client
         device = client.sdk.systemManager.getDeviceById(device_id)
-        media_object = await device.getVideoClip(clip["videoId"])
+        # NVR clips carry videoId; fall back to the clip id, which scrypted
+        # uses for both.
+        media_object = await device.getVideoClip(clip.get("videoId") or clip_id)
         ffmpeg_input = await client.sdk.mediaManager.convertMediaObjectToJSON(
             media_object, ScryptedMimeTypes.FFmpegInput.value
         )
@@ -144,8 +146,13 @@ class ScryptedMediaSource(MediaSource):
             options={"rtsp_transport": "tcp"},
             dynamic_stream_settings=DynamicStreamSettings(),
         )
-        stream.add_provider(HLS_PROVIDER)
+        provider = stream.add_provider(HLS_PROVIDER)
         await stream.start()
+        # The idle timer normally arms on the first segment, so a session that
+        # never produces one would keep its worker thread for the life of the
+        # process. Arming it here lets the stream clean itself up; fetching the
+        # playlist resets it to the usual idle timeout.
+        provider.idle_timer.start()
         return PlayMedia(
             stream.endpoint_url(HLS_PROVIDER), FORMAT_CONTENT_TYPE[HLS_PROVIDER]
         )
@@ -254,15 +261,19 @@ class ScryptedMediaSource(MediaSource):
         )
 
     async def _day_clips(
-        self, entry: ConfigEntry, device_id: str, day_id: str
+        self,
+        entry: ConfigEntry,
+        device_id: str,
+        day_id: str,
+        error_cls: type[Exception] = BrowseError,
     ) -> list[dict]:
         client = entry.runtime_data.client
         if not device_matches(client, device_id, ScryptedInterface.VideoClips.value):
-            raise BrowseError(f"Unknown scrypted camera {device_id}")
+            raise error_cls(f"Unknown scrypted camera {device_id}")
         device = client.sdk.systemManager.getDeviceById(device_id)
         day = dt_util.parse_date(day_id)
         if day is None:
-            raise BrowseError(f"Invalid day {day_id}")
+            raise error_cls(f"Invalid day {day_id}")
         start = dt_util.start_of_local_day(day)
         end = dt_util.start_of_local_day(day + timedelta(days=1))
         start_ms = int(start.timestamp() * 1000)
@@ -274,7 +285,7 @@ class ScryptedMediaSource(MediaSource):
             )
         except Exception as err:  # noqa: BLE001 - RPC failures surface in the UI
             _LOGGER.debug("getVideoClips failed for %s", device_id, exc_info=True)
-            raise BrowseError(f"Could not load clips for {device.name}") from err
+            raise error_cls(f"Could not load clips for {device.name}") from err
 
     def _node(
         self,

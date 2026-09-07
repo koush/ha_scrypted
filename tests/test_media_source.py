@@ -1,5 +1,6 @@
 """Tests for the scrypted NVR clips media source."""
 
+from datetime import timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -7,6 +8,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.components import media_source
 from homeassistant.components.media_player import BrowseError
+from homeassistant.components.media_source import Unresolvable
 from homeassistant.components.stream import FORMAT_CONTENT_TYPE, HLS_PROVIDER
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
@@ -82,8 +84,11 @@ async def test_browse_day_lists_clips_with_one_rpc(
     device.getVideoClips.assert_awaited_once()
     window = device.getVideoClips.await_args.args[0]
     start = dt_util.start_of_local_day()
+    end = dt_util.start_of_local_day(start.date() + timedelta(days=1))
     assert window["startTime"] == int(start.timestamp() * 1000)
-    assert window["endTime"] == window["startTime"] + 24 * 3600 * 1000
+    # A local day is 23 or 25 hours across a DST change, so derive the end
+    # rather than assuming 24 hours.
+    assert window["endTime"] == int(end.timestamp() * 1000)
 
     assert [c.title for c in day.children] == [
         "3:42:07 PM — person, motion",
@@ -326,3 +331,47 @@ async def test_browse_root_with_multiple_entries_lists_entries(
         hass, f"media-source://scrypted/{entry1.entry_id}"
     )
     assert [child.title for child in camera.children] == ["Front Door Cam"]
+
+
+async def test_resolve_rpc_failure_is_unresolvable(hass, fake_sdk):
+    """A failure while resolving surfaces as Unresolvable, not BrowseError."""
+    entry = await setup_media_source(hass)
+    device = fake_sdk.systemManager.getDeviceById("cam1")
+    device.getVideoClips.side_effect = RuntimeError("rpc down")
+    day_id = dt_util.now().strftime("%Y-%m-%d")
+
+    with pytest.raises(Unresolvable):
+        await media_source.async_resolve_media(
+            hass,
+            f"media-source://scrypted/{entry.entry_id}/cam1/{day_id}/clip1",
+            None,
+        )
+
+
+async def test_resolve_empty_video_href_falls_back_to_stream(hass, fake_sdk):
+    """An empty video href is not a playable URL and falls through to HLS."""
+    entry = await setup_media_source(hass)
+    device = fake_sdk.systemManager.getDeviceById("cam1")
+    clip = video_clip("clip1", today_ms(15, 42, 7))
+    clip["resources"]["video"]["href"] = ""
+    clip.pop("videoId")
+    device.getVideoClips.return_value = [clip]
+    day_id = dt_util.now().strftime("%Y-%m-%d")
+
+    with patch(
+        "custom_components.scrypted.media_source.create_stream"
+    ) as mock_create_stream:
+        stream = mock_create_stream.return_value
+        stream.start = AsyncMock()
+        stream.endpoint_url.return_value = "/api/hls/abc/master_playlist.m3u8"
+        result = await media_source.async_resolve_media(
+            hass,
+            f"media-source://scrypted/{entry.entry_id}/cam1/{day_id}/clip1",
+            None,
+        )
+
+    assert result.url == "/api/hls/abc/master_playlist.m3u8"
+    # Missing videoId falls back to the clip id.
+    device.getVideoClip.assert_awaited_once_with("clip1")
+    # The stream must not outlive a session that never produces data.
+    stream.add_provider.return_value.idle_timer.start.assert_called_once()
