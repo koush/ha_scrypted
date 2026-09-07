@@ -59,7 +59,9 @@ class ScryptedRuntimeData:
 PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.CAMERA,
+    Platform.CLIMATE,
     Platform.SENSOR,
+    Platform.VACUUM,
 ]
 
 _LOGGER = logging.getLogger(__name__)
