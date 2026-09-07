@@ -9,6 +9,22 @@ cards.
 Visit the [Scrypted Documentation](https://docs.scrypted.app/home-assistant.html)
 for setup instructions.
 
+## Device entities
+
+When *Create entities for Scrypted devices* is enabled (default), the
+integration connects to the Scrypted server over its engine.io RPC API and
+creates entities for discovered devices. By default only **Camera** and
+**Doorbell** device types are mirrored; pick additional Scrypted device types
+in the integration options.
+
+- **Camera** — snapshots for `VideoCamera` devices. Live streaming is
+  intentionally not supported; use the Scrypted NVR cards for live view.
+- **Binary sensor** — motion, doorbell button, sound, occupancy, flood, entry,
+  power, connectivity, tamper, charging, sleeping.
+
+State updates are pushed; no polling. Entities reconnect automatically if the
+server restarts.
+
 ## Development
 
 ### Using Dev Container (Recommended)
