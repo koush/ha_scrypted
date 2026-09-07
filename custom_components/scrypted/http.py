@@ -1,24 +1,33 @@
 """The Scrypted integration."""
 
 import asyncio
-import logging
 from collections.abc import Iterable
 from functools import lru_cache
 from ipaddress import ip_address
-import os
+import logging
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
+
 import aiohttp
 from aiohttp import ClientTimeout, hdrs, web
 from aiohttp.web_exceptions import HTTPBadGateway, HTTPBadRequest
+from multidict import CIMultiDict
+from yarl import URL
+
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
-from multidict import CIMultiDict
-from yarl import URL
 
-from .const import DOMAIN, CONF_SCRYPTED_NVR
+from .const import (
+    CONF_SCRYPTED_NVR,
+    DEFAULT_SCRYPTED_PORT,
+    DOMAIN,
+    ENTRYPOINT_HTML_FILENAME,
+    ENTRYPOINT_JS_FILENAME,
+    LIT_CORE_FILENAME,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,7 +44,7 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
     if len(ipport) == 2:
         port = ipport[1]
     else:
-        port = "10443"
+        port = DEFAULT_SCRYPTED_PORT
 
     resp = await session.get(
         f"https://{ip}:{port}/login",
@@ -65,15 +74,22 @@ class ScryptedView(HomeAssistantView):
         self.lit_core = asyncio.Future[str]()
         self.entrypoint_js = asyncio.Future[str]()
         self.entrypoint_html = asyncio.Future[str]()
-        hass.async_add_executor_job(lambda: self.load_files(session.loop))
+        loop = asyncio.get_running_loop()
+        hass.async_add_executor_job(lambda: self.load_files(loop))
 
     def load_files(self, loop: asyncio.AbstractEventLoop):
-        lit_core = str(open(os.path.join(os.path.dirname(__file__), "lit-core.min.js")).read())
-        entrypoint_js = str(open(os.path.join(os.path.dirname(__file__), "entrypoint.js")).read())
-        entrypoint_html = str(open(os.path.join(os.path.dirname(__file__), "entrypoint.html")).read())
+        """Load static files from disk and set futures with results."""
+        base_dir = Path(__file__).parent
+        lit_core = (base_dir / LIT_CORE_FILENAME).read_text(encoding="utf-8")
+        entrypoint_js = (base_dir / ENTRYPOINT_JS_FILENAME).read_text(encoding="utf-8")
+        entrypoint_html = (base_dir / ENTRYPOINT_HTML_FILENAME).read_text(
+            encoding="utf-8"
+        )
         loop.call_soon_threadsafe(lambda: self.lit_core.set_result(lit_core))
         loop.call_soon_threadsafe(lambda: self.entrypoint_js.set_result(entrypoint_js))
-        loop.call_soon_threadsafe(lambda: self.entrypoint_html.set_result(entrypoint_html))
+        loop.call_soon_threadsafe(
+            lambda: self.entrypoint_html.set_result(entrypoint_html)
+        )
 
     @lru_cache
     def _create_url(self, token: str, path: str) -> str:
@@ -87,7 +103,7 @@ class ScryptedView(HomeAssistantView):
         if len(ipport) == 2:
             port = ipport[1]
         else:
-            port = "10443"
+            port = DEFAULT_SCRYPTED_PORT
 
         base_path = "/"
         url = f"https://{ip}:{port}/{quote(path)}"
@@ -105,7 +121,7 @@ class ScryptedView(HomeAssistantView):
     ) -> web.Response | web.StreamResponse | web.WebSocketResponse:
         """Route data to Hass.io ingress service."""
         try:
-            if path == "lit-core.min.js":
+            if path == LIT_CORE_FILENAME:
                 response = web.Response(
                     body=await self.lit_core,
                     headers={
@@ -115,8 +131,12 @@ class ScryptedView(HomeAssistantView):
                 )
                 return response
 
-            if path == "entrypoint.js":
-                body = (await self.entrypoint_js).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+            if path == ENTRYPOINT_JS_FILENAME:
+                body = (
+                    (await self.entrypoint_js)
+                    .replace("__DOMAIN__", DOMAIN)
+                    .replace("__TOKEN__", token)
+                )
                 response = web.Response(
                     body=body,
                     headers={
@@ -126,10 +146,16 @@ class ScryptedView(HomeAssistantView):
                 )
                 return response
 
-            if path == "entrypoint.html":
-                body = (await self.entrypoint_html).replace("__DOMAIN__", DOMAIN).replace("__TOKEN__", token)
+            if path == ENTRYPOINT_HTML_FILENAME:
+                body = (
+                    (await self.entrypoint_html)
+                    .replace("__DOMAIN__", DOMAIN)
+                    .replace("__TOKEN__", token)
+                )
                 entry: ConfigEntry = self.hass.data[DOMAIN][token]
-                if entry.options.get(CONF_SCRYPTED_NVR, entry.data.get(CONF_SCRYPTED_NVR, False)):
+                if entry.options.get(
+                    CONF_SCRYPTED_NVR, entry.data.get(CONF_SCRYPTED_NVR, False)
+                ):
                     body = body.replace("core", "nvr")
 
                 response = web.Response(
@@ -174,7 +200,10 @@ class ScryptedView(HomeAssistantView):
             req_protocols = ()
 
         ws_server = web.WebSocketResponse(
-            protocols=req_protocols, autoclose=False, autoping=False, max_msg_size=4194304 * 4
+            protocols=req_protocols,
+            autoclose=False,
+            autoping=False,
+            max_msg_size=4194304 * 4,
         )
         await ws_server.prepare(request)
 
@@ -195,7 +224,7 @@ class ScryptedView(HomeAssistantView):
             protocols=req_protocols,
             autoclose=False,
             autoping=False,
-            max_msg_size=4194304 * 4
+            max_msg_size=4194304 * 4,
         ) as ws_client:
             # Proxy requests
             await asyncio.wait(

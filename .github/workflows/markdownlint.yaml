@@ -1,0 +1,29 @@
+---
+name: Markdownlint
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.md"
+      - ".markdownlint.json"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.md"
+      - ".markdownlint.json"
+
+jobs:
+  markdownlint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Markdownlint
+        run: npx markdownlint-cli --config .markdownlint.json "**/*.md"

@@ -3,8 +3,8 @@
 from typing import Any
 
 import voluptuous as vol
+
 from homeassistant import config_entries
-from homeassistant.core import callback
 from homeassistant.const import (
     CONF_HOST,
     CONF_ICON,
@@ -12,8 +12,15 @@ from homeassistant.const import (
     CONF_PASSWORD,
     CONF_USERNAME,
 )
-from homeassistant.helpers import selector
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    IconSelector,
+    IconSelectorConfig,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 from homeassistant.util import slugify
 
 from .const import (
@@ -24,9 +31,9 @@ from .const import (
 from .http import retrieve_token
 
 
-def text_selector(type: selector.TextSelectorType) -> selector.TextSelector:
+def text_selector(selector_type: TextSelectorType) -> TextSelector:
     """Create a text selector."""
-    return selector.TextSelector(selector.TextSelectorConfig(type=type))
+    return TextSelector(TextSelectorConfig(type=selector_type))
 
 
 def _get_config_schema(
@@ -45,19 +52,19 @@ def _get_config_schema(
     schema: dict[Any, Any] = {
         vol.Required(
             CONF_NAME, default=default.get(CONF_NAME, DOMAIN.title())
-        ): text_selector(type=selector.TextSelectorType.TEXT),
+        ): text_selector(TextSelectorType.TEXT),
         vol.Required(
             CONF_ICON, default=default.get(CONF_ICON, "mdi:memory")
-        ): selector.IconSelector(selector.IconSelectorConfig()),
+        ): IconSelector(IconSelectorConfig()),
         vol.Required(CONF_HOST, default=default.get(CONF_HOST)): text_selector(
-            type=selector.TextSelectorType.TEXT
+            TextSelectorType.TEXT
         ),
-        vol.Required(
-            CONF_USERNAME, default=default.get(CONF_USERNAME)
-        ): text_selector(type=selector.TextSelectorType.TEXT),
-        vol.Required(
-            CONF_PASSWORD, default=default.get(CONF_PASSWORD)
-        ): text_selector(type=selector.TextSelectorType.PASSWORD),
+        vol.Required(CONF_USERNAME, default=default.get(CONF_USERNAME)): text_selector(
+            TextSelectorType.TEXT
+        ),
+        vol.Required(CONF_PASSWORD, default=default.get(CONF_PASSWORD)): text_selector(
+            TextSelectorType.PASSWORD
+        ),
     }
     if include_nvr:
         schema[
@@ -67,9 +74,7 @@ def _get_config_schema(
         ] = bool
     if include_auto_register:
         schema[
-            vol.Required(
-                CONF_AUTO_REGISTER_RESOURCES, default=auto_register_value
-            )
+            vol.Required(CONF_AUTO_REGISTER_RESOURCES, default=auto_register_value)
         ] = bool
     return vol.Schema(schema)
 
@@ -78,10 +83,6 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a Scrypted config flow."""
 
     VERSION = 1
-
-    def __init__(self) -> None:
-        """Initialize flow."""
-        self.data = {}
 
     async def validate_input(self, data: dict[str, Any]) -> bool:
         """Validate that the host is valid."""
@@ -196,9 +197,7 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle upgrade step."""
         return await self._async_step_reauth("upgrade", user_input)
 
-    def _async_auto_register_default(
-        self, data: dict[str, Any] | None
-    ) -> bool:
+    def _async_auto_register_default(self, data: dict[str, Any] | None) -> bool:
         """Determine the auto register default."""
         if data and CONF_AUTO_REGISTER_RESOURCES in data:
             return data[CONF_AUTO_REGISTER_RESOURCES]
@@ -206,11 +205,10 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return options.get(CONF_AUTO_REGISTER_RESOURCES, False)
         return False
 
-
     @staticmethod
     @callback
     def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
+        _config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Return the options flow handler for this config entry."""
         return ScryptedOptionsFlowHandler()
@@ -232,16 +230,12 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             data = {
                 **self.config_entry.options,
-                CONF_AUTO_REGISTER_RESOURCES: user_input[
-                    CONF_AUTO_REGISTER_RESOURCES
-                ],
+                CONF_AUTO_REGISTER_RESOURCES: user_input[CONF_AUTO_REGISTER_RESOURCES],
                 CONF_SCRYPTED_NVR: user_input[CONF_SCRYPTED_NVR],
             }
             return self.async_create_entry(data=data)
 
-        current_auto = self.config_entry.options.get(
-            CONF_AUTO_REGISTER_RESOURCES
-        )
+        current_auto = self.config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES)
         if current_auto is None:
             current_auto = self.config_entry.data.get(
                 CONF_AUTO_REGISTER_RESOURCES, False
@@ -249,9 +243,7 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
 
         current_nvr = self.config_entry.options.get(CONF_SCRYPTED_NVR)
         if current_nvr is None:
-            current_nvr = self.config_entry.data.get(
-                CONF_SCRYPTED_NVR, False
-            )
+            current_nvr = self.config_entry.data.get(CONF_SCRYPTED_NVR, False)
 
         return self.async_show_form(
             step_id="general",

@@ -1,0 +1,5 @@
+home-assistant-frontend
+pytest
+pytest-asyncio
+pytest-cov
+pytest-homeassistant-custom-component
