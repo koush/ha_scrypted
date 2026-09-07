@@ -289,7 +289,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             return _reauth(config_entry.data)
         raise e
 
-    hass.data.setdefault(DOMAIN, {})[token] = config_entry
     config_entry.async_on_unload(
         config_entry.add_update_listener(_async_update_listener)
     )
@@ -315,6 +314,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             configuration_url=get_base_url(config_entry.data[CONF_HOST]),
         )
 
+    # Published only once setup can no longer fail: the proxy view and the
+    # token sensor resolve entries through this mapping, and a failed setup
+    # never reaches async_unload_entry to clean it up again.
+    hass.data.setdefault(DOMAIN, {})[token] = config_entry
     config_entry.runtime_data = ScryptedRuntimeData(token=token, client=client)
 
     if config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES):

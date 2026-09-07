@@ -1,7 +1,7 @@
 """Tests for ScryptedClient."""
 
 import asyncio
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -109,3 +109,26 @@ async def test_disconnect_triggers_reconnect(hass, entry, fake_sdk, mock_connect
     # disconnect handler is a no-op once closing
     mock_connect_sdk.transport.handlers["disconnect"]()
     assert client.connected is False
+
+
+async def test_reconnect_survives_unexpected_error(hass, entry, fake_sdk):
+    """An unexpected reconnect error is logged and retried, not fatal."""
+    client = ScryptedClient(hass, entry)
+    await client.async_connect()
+
+    attempts = []
+
+    async def _connect():
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise RuntimeError("boom")
+        client.connected = True
+
+    with (
+        patch.object(client, "async_connect", _connect),
+        patch("custom_components.scrypted.hub.asyncio.sleep", AsyncMock()),
+    ):
+        client.connected = False
+        await client._reconnect_loop()
+
+    assert len(attempts) == 2

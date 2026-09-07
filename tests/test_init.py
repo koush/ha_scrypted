@@ -742,3 +742,37 @@ async def test_remove_config_entry_device_entities_disabled(
         },
     )
     assert await scrypted.async_remove_config_entry_device(hass, entry, device_entry)
+
+
+async def test_failed_connect_does_not_publish_token(hass, mock_forward_entry_setups):
+    """A setup that cannot connect leaves no token mapping behind."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: EXAMPLE_HOST,
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: True,
+            "device_types": ["Camera", "Doorbell"],
+        },
+    )
+    entry.add_to_hass(hass)
+
+    with (
+        patch.object(
+            scrypted.ScryptedClient,
+            "async_connect",
+            AsyncMock(side_effect=ScryptedConnectionError("nope")),
+        ),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await scrypted.async_setup_entry(hass, entry)
+
+    # The proxy view resolves entries through hass.data; a token left there
+    # would keep serving an entry that never loaded.
+    assert not hass.data.get(DOMAIN)

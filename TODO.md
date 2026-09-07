@@ -73,4 +73,3 @@ on resolve, poll for completion, serve through the proxy.
   and lacks the HA_PLUGIN_ID loop guard; share a predicate with
   `device_matches`.
 - PTZ support (`PanTiltZoom` interface) on cameras.
-
