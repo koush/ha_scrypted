@@ -173,8 +173,17 @@ class ScryptedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     for entry in self.hass.config_entries.async_entries(DOMAIN)
                     if entry != config_entry and entry.unique_id == unique_id
                 ):
+                    # Keep options this form does not collect (the entity
+                    # options); let the fields it does collect win.
+                    options = dict(config_entry.options)
+                    for key in (CONF_SCRYPTED_NVR, CONF_AUTO_REGISTER_RESOURCES):
+                        if key in user_input:
+                            options[key] = user_input[key]
                     self.hass.config_entries.async_update_entry(
-                        config_entry, data=user_input, options={}, unique_id=unique_id
+                        config_entry,
+                        data=user_input,
+                        options=options,
+                        unique_id=unique_id,
                     )
                     self.hass.async_create_task(
                         self.hass.config_entries.async_reload(config_entry.entry_id)

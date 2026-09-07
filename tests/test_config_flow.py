@@ -319,3 +319,72 @@ async def test_options_flow_includes_enable_entities(hass):
     )
     assert result["type"] == "create_entry"
     assert result["data"][CONF_ENABLE_ENTITIES] is False
+
+
+async def test_reauth_preserves_entity_options(hass):
+    """Reauth keeps options its form never collects."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_HOST: EXAMPLE_HOST},
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell", "Sensor"],
+        },
+    )
+    entry.add_to_hass(hass)
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_REAUTH,
+            "entry_id": entry.entry_id,
+            "data": {**entry.data, CONF_PASSWORD: "old"},
+        },
+    )
+    result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"], CREDENTIALS_INPUT
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.ABORT
+    assert entry.options["device_types"] == ["Camera", "Doorbell", "Sensor"]
+    assert entry.options[CONF_ENABLE_ENTITIES] is False
+
+
+async def test_upgrade_step_applies_its_own_fields_and_keeps_the_rest(hass):
+    """The upgrade form's own fields win; entity options survive."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_HOST: EXAMPLE_HOST},
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell", "Sensor"],
+        },
+    )
+    entry.add_to_hass(hass)
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_REAUTH,
+            "entry_id": entry.entry_id,
+            "data": entry.data,
+        },
+    )
+    assert init_result["step_id"] == "upgrade"
+    result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"], USER_INPUT
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.ABORT
+    # USER_INPUT turns both of these on.
+    assert entry.options[CONF_SCRYPTED_NVR] is True
+    assert entry.options[CONF_AUTO_REGISTER_RESOURCES] is True
+    # Untouched by this form.
+    assert entry.options[CONF_ENABLE_ENTITIES] is False
+    assert entry.options["device_types"] == ["Camera", "Doorbell", "Sensor"]

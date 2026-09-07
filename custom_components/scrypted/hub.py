@@ -122,5 +122,9 @@ class ScryptedClient:
                 return
             except ScryptedConnectionError as err:
                 _LOGGER.debug("Scrypted reconnect failed: %s", err)
-                await asyncio.sleep(delay)
-                delay = min(delay * 2, RECONNECT_MAX_DELAY)
+            except Exception:
+                # Anything escaping here would end the task and leave the entry
+                # offline until it is reloaded by hand.
+                _LOGGER.exception("Unexpected error reconnecting to %s", self.host)
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, RECONNECT_MAX_DELAY)
