@@ -59,6 +59,7 @@ class ScryptedRuntimeData:
 PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.CAMERA,
+    Platform.EVENT,
     Platform.LOCK,
     Platform.SENSOR,
     Platform.SWITCH,
