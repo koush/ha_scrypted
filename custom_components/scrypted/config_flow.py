@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from scrypted_sdk import ScryptedDeviceType
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -17,6 +18,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     IconSelector,
     IconSelectorConfig,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -25,10 +29,22 @@ from homeassistant.util import slugify
 
 from .const import (
     CONF_AUTO_REGISTER_RESOURCES,
+    CONF_DEVICE_TYPES,
+    CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
+    DEFAULT_DEVICE_TYPES,
     DOMAIN,
+    EXCLUDED_DEVICE_TYPES,
 )
 from .http import retrieve_token
+
+# All scrypted device types a user might want mirrored as entities
+# (server plumbing types are not offered).
+DEVICE_TYPE_OPTIONS = sorted(
+    device_type.value
+    for device_type in ScryptedDeviceType
+    if device_type.value not in EXCLUDED_DEVICE_TYPES
+)
 
 
 def text_selector(selector_type: TextSelectorType) -> TextSelector:
@@ -232,6 +248,8 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
                 **self.config_entry.options,
                 CONF_AUTO_REGISTER_RESOURCES: user_input[CONF_AUTO_REGISTER_RESOURCES],
                 CONF_SCRYPTED_NVR: user_input[CONF_SCRYPTED_NVR],
+                CONF_ENABLE_ENTITIES: user_input[CONF_ENABLE_ENTITIES],
+                CONF_DEVICE_TYPES: user_input[CONF_DEVICE_TYPES],
             }
             return self.async_create_entry(data=data)
 
@@ -245,6 +263,11 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
         if current_nvr is None:
             current_nvr = self.config_entry.data.get(CONF_SCRYPTED_NVR, False)
 
+        current_entities = self.config_entry.options.get(CONF_ENABLE_ENTITIES, True)
+        current_types = self.config_entry.options.get(
+            CONF_DEVICE_TYPES, DEFAULT_DEVICE_TYPES
+        )
+
         return self.async_show_form(
             step_id="general",
             data_schema=vol.Schema(
@@ -253,6 +276,16 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_AUTO_REGISTER_RESOURCES, default=current_auto
                     ): bool,
                     vol.Required(CONF_SCRYPTED_NVR, default=current_nvr): bool,
+                    vol.Required(CONF_ENABLE_ENTITIES, default=current_entities): bool,
+                    vol.Required(
+                        CONF_DEVICE_TYPES, default=current_types
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=DEVICE_TYPE_OPTIONS,
+                            multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
                 }
             ),
         )

@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aiohttp import ClientResponseError
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from scrypted_sdk import ScryptedConnectionError
 
 from homeassistant.components.lovelace.const import DOMAIN as LL_DOMAIN
 from homeassistant.components.lovelace.resources import (
     ResourceStorageCollection,
     ResourceYAMLCollection,
 )
-from homeassistant.config_entries import SOURCE_REAUTH
+from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.const import (
     CONF_HOST,
     CONF_ICON,
@@ -24,13 +25,16 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 
 from custom_components import scrypted
 from custom_components.scrypted.const import (
     CONF_AUTO_REGISTER_RESOURCES,
+    CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
+from tests.conftest import setup_entry
 from tests.const import EXAMPLE_HOST
 
 
@@ -226,6 +230,8 @@ async def test_async_setup_entry_registers_resources_and_panel(
         options={
             CONF_AUTO_REGISTER_RESOURCES: True,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -321,6 +327,8 @@ async def test_ensure_entry_options_no_changes(hass, mock_async_update_entry):
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -362,6 +370,8 @@ async def test_async_setup_entry_handles_missing_token(
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -387,6 +397,8 @@ async def test_async_setup_entry_auth_error_triggers_reauth(
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -416,6 +428,8 @@ async def test_async_setup_entry_client_connector_error(
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -438,6 +452,8 @@ async def test_async_setup_entry_other_exception_propagates(
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -483,6 +499,8 @@ async def test_panel_registered_with_token(
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -531,6 +549,8 @@ async def test_panel_reload_uses_consistent_url_path(hass, mock_panel_lifecycle)
         options={
             CONF_AUTO_REGISTER_RESOURCES: False,
             CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
         },
     )
     entry.add_to_hass(hass)
@@ -552,3 +572,173 @@ async def test_panel_reload_uses_consistent_url_path(hass, mock_panel_lifecycle)
     result = await scrypted.async_setup_entry(hass, entry)
     assert result is True
     assert f"{DOMAIN}_token" in mock_panel_lifecycle["registered"]
+
+
+async def test_setup_entry_creates_client_and_unloads(hass, enable_custom_integrations):
+    """Entities enabled: client connects on setup and disconnects on unload."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "host": "1.2.3.4",
+            "username": "u",
+            "password": "p",
+            "name": "Scrypted",
+            "icon": "mdi:memory",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: True,
+            "device_types": ["Camera", "Doorbell"],
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    client = entry.runtime_data.client
+    assert client is not None
+    assert client.connected
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert client.connected is False
+
+
+async def test_setup_entry_entities_disabled(hass, enable_custom_integrations):
+    """Entities disabled: no client, panel-only setup still succeeds."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "host": "1.2.3.4",
+            "username": "u",
+            "password": "p",
+            "name": "Scrypted",
+            "icon": "mdi:memory",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.runtime_data.client is None
+
+
+async def test_setup_entry_auth_error_starts_reauth(hass):
+    """HTTP 401 from token retrieval starts the reauth flow."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_HOST: "example", CONF_USERNAME: "u"},
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
+        },
+    )
+    entry.add_to_hass(hass)
+
+    async def _raise(data, session):
+        raise ClientResponseError(request_info=MagicMock(), history=(), status=401)
+
+    flow_init = AsyncMock()
+    with (
+        patch.object(scrypted, "retrieve_token", _raise),
+        patch.object(hass.config_entries.flow, "async_init", flow_init),
+    ):
+        result = await scrypted.async_setup_entry(hass, entry)
+        await hass.async_block_till_done()
+        assert result is False
+        flow_init.assert_awaited()
+
+
+async def test_setup_entry_not_ready_on_engineio_failure(
+    hass, enable_custom_integrations
+):
+    """engine.io connect failure raises ConfigEntryNotReady (setup retry)."""
+
+    async def _fail(self):
+        raise ScryptedConnectionError("nope")
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: "1.2.3.4",
+            CONF_USERNAME: "u",
+            CONF_NAME: "Scrypted",
+            CONF_ICON: "mdi:memory",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: True,
+            "device_types": ["Camera", "Doorbell"],
+        },
+    )
+    entry.add_to_hass(hass)
+    with patch.object(scrypted.ScryptedClient, "async_connect", _fail):
+        assert not await hass.config_entries.async_setup(entry.entry_id)
+        assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_unload_entry_fails_when_platforms_fail(hass):
+    """Unload aborts when platform unload fails."""
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
+    entry.add_to_hass(hass)
+    with patch.object(
+        hass.config_entries,
+        "async_unload_platforms",
+        AsyncMock(return_value=False),
+    ):
+        assert await scrypted.async_unload_entry(hass, entry) is False
+
+
+async def test_remove_config_entry_device(hass, fake_sdk, enable_custom_integrations):
+    """Devices are only removable once scrypted stops exposing them."""
+    entry = await setup_entry(hass)
+    device_registry = dr.async_get(hass)
+    hub = device_registry.async_get_device_by_identifier(
+        (DOMAIN, entry.entry_id), entry.entry_id
+    )
+    cam = device_registry.async_get_device_by_identifier(
+        (DOMAIN, f"{entry.entry_id}_cam1"), entry.entry_id
+    )
+    bell = device_registry.async_get_device_by_identifier(
+        (DOMAIN, f"{entry.entry_id}_bell1"), entry.entry_id
+    )
+    assert hub and cam and bell
+
+    # hub and still-exposed devices are not removable
+    assert not await scrypted.async_remove_config_entry_device(hass, entry, hub)
+    assert not await scrypted.async_remove_config_entry_device(hass, entry, cam)
+
+    # device gone from scrypted -> removable
+    fake_sdk.systemManager.systemState.pop("cam1")
+    assert await scrypted.async_remove_config_entry_device(hass, entry, cam)
+
+    # device still in scrypted but type no longer in the allowlist -> removable
+    fake_sdk.systemManager.systemState["bell1"]["type"]["value"] = "Vacuum"
+    assert await scrypted.async_remove_config_entry_device(hass, entry, bell)
+
+
+async def test_remove_config_entry_device_entities_disabled(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """With entities disabled, any leftover device is removable."""
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "x"})
+    entry.add_to_hass(hass)
+    entry.runtime_data = SimpleNamespace(client=None)
+    device_entry = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={
+            ("other_domain", "irrelevant"),
+            (DOMAIN, "other_entry_device"),
+            (DOMAIN, f"{entry.entry_id}_ghost"),
+        },
+    )
+    assert await scrypted.async_remove_config_entry_device(hass, entry, device_entry)

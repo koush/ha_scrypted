@@ -1,5 +1,8 @@
+av
 home-assistant-frontend
 pytest
 pytest-asyncio
 pytest-cov
 pytest-homeassistant-custom-component
+PyTurboJPEG
+scrypted-sdk==0.1.1

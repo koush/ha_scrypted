@@ -69,6 +69,9 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 norecursedirs = [".git", "testing_config"]
 
+[tool.coverage.run]
+omit = ["custom_components/scrypted/sdk.py"]
+
 [tool.coverage.report]
 show_missing = true
 fail_under = 100

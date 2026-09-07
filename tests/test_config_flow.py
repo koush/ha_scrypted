@@ -17,6 +17,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from custom_components.scrypted import config_flow
 from custom_components.scrypted.const import (
     CONF_AUTO_REGISTER_RESOURCES,
+    CONF_ENABLE_ENTITIES,
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
@@ -226,9 +227,11 @@ async def test_options_flow_respects_existing_options(hass):
     entry.add_to_hass(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
     schema_keys = list(result["data_schema"].schema.keys())
-    auto_field, nvr_field = schema_keys
+    auto_field, nvr_field, entities_field, types_field = schema_keys
     assert auto_field.default() is False
     assert nvr_field.default() is False
+    assert entities_field.default() is True
+    assert types_field.default() == ["Camera", "Doorbell"]
 
 
 async def test_options_flow_init_shows_general_step(hass):
@@ -281,3 +284,38 @@ async def test_validate_input_missing_field_returns_false(hass):
     flow.hass = hass
     data = {CONF_HOST: EXAMPLE_HOST, CONF_ICON: "mdi:test"}
     assert await flow.validate_input(data) is False
+
+
+async def test_options_flow_includes_enable_entities(hass):
+    """Options flow exposes and persists the enable_entities flag."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "host": "1.2.3.4",
+            "username": "u",
+            "password": "p",
+            "name": "Scrypted",
+            "icon": "mdi:memory",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: True,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == "form"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
+        },
+    )
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_ENABLE_ENTITIES] is False

@@ -2,4 +2,4 @@
 -r requirements_test.txt
 colorlog
 debugpy
-homeassistant
+homeassistant>=2026.7.0
