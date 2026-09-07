@@ -1,19 +1,20 @@
 """Shared pytest fixtures for Scrypted tests."""
 
+import asyncio
+from contextlib import contextmanager
 import copy
-import importlib
+import json
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from aiohttp import ClientConnectorError, web
 import pytest
-from homeassistant import loader
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry  # noqa: E402
-
-import custom_components.scrypted as scrypted  # noqa: E402
-from custom_components.scrypted import config_flow, hub  # noqa: E402
+from custom_components.scrypted import http, hub  # noqa: E402
 from custom_components.scrypted.const import (  # noqa: E402
     CONF_AUTO_REGISTER_RESOURCES,
     CONF_DEVICE_TYPES,
@@ -22,41 +23,317 @@ from custom_components.scrypted.const import (  # noqa: E402
     DOMAIN,
 )
 
+# ---------------------------------------------------------------------------
+# Fixture loading helpers
+# ---------------------------------------------------------------------------
+
+
+def load_fixture(name: str) -> dict:
+    """Load a JSON fixture file."""
+    with open(Path(__file__).parent / "fixtures" / name, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def login_success_fixture() -> dict:
+    """Load the successful login response fixture."""
+    return load_fixture("login_success.json")
+
+
+@pytest.fixture
+def login_error_not_logged_in_fixture() -> dict:
+    """Load the not logged in error fixture."""
+    return load_fixture("login_error_not_logged_in.json")
+
 
 @pytest.fixture(autouse=True)
-def _register_scrypted_flow(hass):
-    """Register the config flow module so HA can resolve it."""
-
-    module = importlib.import_module("custom_components.scrypted.config_flow")
-    hass.data[loader.DATA_COMPONENTS][f"{DOMAIN}.config_flow"] = module
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Allow loading this custom integration in tests."""
+    yield
 
 
-@pytest.fixture(autouse=True)
-def _patch_async_get_clientsession():
-    """Prevent tests from creating real aiohttp sessions."""
+# ---------------------------------------------------------------------------
+# retrieve_token patching
+# ---------------------------------------------------------------------------
 
-    def _fake_session(hass, *args, **kwargs):
-        return SimpleNamespace(loop=hass.loop)
+RETRIEVE_TOKEN_PATCH_TARGETS = (
+    "custom_components.scrypted.retrieve_token",
+    "custom_components.scrypted.config_flow.retrieve_token",
+)
 
+
+@contextmanager
+def _patch_retrieve_token(side_effect):
+    """Patch retrieve_token at every import site with the given side effect."""
     with (
-        patch.object(scrypted, "async_get_clientsession", _fake_session),
-        patch.object(config_flow, "async_get_clientsession", _fake_session),
+        patch(
+            RETRIEVE_TOKEN_PATCH_TARGETS[0], side_effect=side_effect
+        ) as scrypted_mock,
+        patch(RETRIEVE_TOKEN_PATCH_TARGETS[1], side_effect=side_effect) as flow_mock,
     ):
-        yield
+        yield {"scrypted": scrypted_mock, "config_flow": flow_mock}
+
+
+def _raise(exc):
+    """Return an async side effect that raises ``exc``."""
+
+    async def _side_effect(*args, **kwargs):
+        raise exc
+
+    return _side_effect
+
+
+@pytest.fixture
+def patch_retrieve_token():
+    """Return a context manager factory for patching retrieve_token."""
+    return _patch_retrieve_token
 
 
 @pytest.fixture(autouse=True)
-def _patch_retrieve_token():
+def mock_retrieve_token():
     """Return a canned token unless a test overrides the patch."""
 
     async def _fake_retrieve(data, session):
         return "token"
 
+    with _patch_retrieve_token(_fake_retrieve) as mocks:
+        yield mocks
+
+
+@pytest.fixture
+def mock_retrieve_token_error():
+    """Patch retrieve_token to raise ValueError (invalid credentials)."""
+    with _patch_retrieve_token(_raise(ValueError())) as mocks:
+        yield mocks
+
+
+@pytest.fixture
+def mock_retrieve_token_none():
+    """Patch retrieve_token to return None (missing token)."""
+
+    async def _no_token(*args, **kwargs):
+        return None
+
+    with _patch_retrieve_token(_no_token) as mocks:
+        yield mocks
+
+
+@pytest.fixture
+def mock_retrieve_token_client_error():
+    """Patch retrieve_token to raise ClientConnectorError."""
+    exc = ClientConnectorError(SimpleNamespace(), OSError())
+    with _patch_retrieve_token(_raise(exc)) as mocks:
+        yield mocks
+
+
+@pytest.fixture
+def mock_retrieve_token_runtime_error():
+    """Patch retrieve_token to raise RuntimeError."""
+    with _patch_retrieve_token(_raise(RuntimeError("boom"))) as mocks:
+        yield mocks
+
+
+# ---------------------------------------------------------------------------
+# Reusable patch fixtures for common mocks
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_register_lovelace_resource():
+    """Patch _async_register_lovelace_resource."""
+    with patch(
+        "custom_components.scrypted._async_register_lovelace_resource",
+        new_callable=AsyncMock,
+    ) as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_unregister_lovelace_resource():
+    """Patch _async_unregister_lovelace_resource."""
+    with patch(
+        "custom_components.scrypted._async_unregister_lovelace_resource",
+        new_callable=AsyncMock,
+    ) as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_register_built_in_panel():
+    """Patch async_register_built_in_panel and capture kwargs."""
+    captured_kwargs = {}
+
+    def _capture(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+
+    with patch(
+        "custom_components.scrypted.async_register_built_in_panel",
+        side_effect=_capture,
+    ) as mock:
+        mock.captured_kwargs = captured_kwargs
+        yield mock
+
+
+@pytest.fixture
+def mock_remove_panel():
+    """Patch async_remove_panel and track removed panels."""
+    removed_panels = []
+
+    def _remove(hass, panel_name):
+        removed_panels.append(panel_name)
+
+    with patch(
+        "custom_components.scrypted.async_remove_panel", side_effect=_remove
+    ) as mock:
+        mock.removed_panels = removed_panels
+        yield mock
+
+
+@pytest.fixture
+def mock_forward_entry_setups(hass):
+    """Patch hass.config_entries.async_forward_entry_setups."""
+    with patch(
+        "homeassistant.config_entries.ConfigEntries.async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ) as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_async_reload(hass):
+    """Patch hass.config_entries.async_reload."""
+    with patch(
+        "homeassistant.config_entries.ConfigEntries.async_reload",
+        new_callable=AsyncMock,
+    ) as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_flow_async_init(hass):
+    """Patch hass.config_entries.flow.async_init."""
+    with patch(
+        "homeassistant.config_entries.ConfigEntriesFlowManager.async_init",
+        new_callable=AsyncMock,
+    ) as mock:
+        mock.return_value = {"type": "form"}
+        yield mock
+
+
+@pytest.fixture
+def mock_async_update_entry(hass):
+    """Patch hass.config_entries.async_update_entry."""
+    with patch("homeassistant.config_entries.ConfigEntries.async_update_entry") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_async_create_notification():
+    """Patch async_create for persistent notifications."""
+    notifications = {}
+
+    def _create(*args, **kwargs):
+        notifications["created"] = (args, kwargs)
+
+    with patch("custom_components.scrypted.async_create", side_effect=_create) as mock:
+        mock.notifications = notifications
+        yield mock
+
+
+@pytest.fixture
+def mock_scrypted_view():
+    """Patch ScryptedView."""
+    with patch("custom_components.scrypted.ScryptedView", return_value="view") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_panel_lifecycle(mock_unregister_lovelace_resource, mock_forward_entry_setups):
+    """Mock panel registration/unregistration with state tracking for reload tests."""
+    registered_panels = []
+    removed_panels = []
+
+    def register_panel(*args, **kwargs):
+        panel_path = kwargs.get("frontend_url_path")
+        if panel_path in registered_panels:
+            raise ValueError(f"Overwriting panel {panel_path}")
+        registered_panels.append(panel_path)
+
+    def remove_panel(hass, panel_name):
+        if panel_name in registered_panels:
+            registered_panels.remove(panel_name)
+        removed_panels.append(panel_name)
+
     with (
-        patch.object(scrypted, "retrieve_token", _fake_retrieve),
-        patch.object(config_flow, "retrieve_token", _fake_retrieve),
+        patch(
+            "custom_components.scrypted.async_register_built_in_panel",
+            side_effect=register_panel,
+        ),
+        patch(
+            "custom_components.scrypted.async_remove_panel",
+            side_effect=remove_panel,
+        ),
     ):
-        yield
+        yield {"registered": registered_panels, "removed": removed_panels}
+
+
+# ---------------------------------------------------------------------------
+# HTTP module test fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_web_request():
+    """Create a factory for mock aiohttp web.Request objects."""
+
+    def _create_request(
+        headers: dict | None = None,
+        peername: tuple | None = ("192.168.1.50", 12345),
+        host: str = "localhost:8123",
+        scheme: str = "https",
+    ) -> MagicMock:
+        mock_request = MagicMock(spec=web.Request)
+        mock_request.headers = headers or {}
+        mock_transport = MagicMock()
+        mock_transport.get_extra_info.return_value = peername
+        mock_request.transport = mock_transport
+        mock_request.host = host
+        mock_request.url = MagicMock()
+        mock_request.url.scheme = scheme
+        return mock_request
+
+    return _create_request
+
+
+@pytest.fixture
+def mock_aiohttp_session():
+    """Create a mock aiohttp ClientSession."""
+    return MagicMock()
+
+
+@pytest.fixture
+async def scrypted_view(hass, mock_aiohttp_session):
+    """Create a ScryptedView instance with mocked file loading."""
+    hass.data[DOMAIN] = {}
+
+    with (
+        patch.object(
+            hass,
+            "async_add_executor_job",
+            side_effect=lambda func, *args, **kwargs: func(*args, **kwargs),
+        ),
+        patch("custom_components.scrypted.http.ScryptedView.load_files") as mock_load,
+    ):
+        view = http.ScryptedView(hass, mock_aiohttp_session)
+    # Set up futures with test content
+    view.lit_core = asyncio.Future()
+    view.lit_core.set_result("lit-core-content")
+    view.entrypoint_js = asyncio.Future()
+    view.entrypoint_js.set_result("__DOMAIN__ __TOKEN__ js-content")
+    view.entrypoint_html = asyncio.Future()
+    view.entrypoint_html.set_result("__DOMAIN__ __TOKEN__ core html-content")
+    mock_load.assert_called_once()
+    return view
 
 
 # --- Scrypted SDK fakes -----------------------------------------------------
@@ -77,7 +354,9 @@ def video_clip(clip_id, start_time_ms, *, detection_classes=None, with_resources
         "duration": 30000,
         "event": "motion",
         "description": "Motion Event",
-        "detectionClasses": detection_classes if detection_classes is not None else ["person"],
+        "detectionClasses": detection_classes
+        if detection_classes is not None
+        else ["person"],
     }
     if with_resources:
         clip["resources"] = {
@@ -104,18 +383,35 @@ class FakeDevice:
         object.__setattr__(self, "startIntercom", AsyncMock())
         object.__setattr__(self, "stopIntercom", AsyncMock())
         for command in (
-            "turnOn", "turnOff", "setBrightness", "setColorTemperature",
-            "setHsv", "setRgb", "lock", "unlock", "setFan", "setTemperature",
-            "openEntry", "closeEntry", "start", "stop", "pause", "resume", "dock",
+            "turnOn",
+            "turnOff",
+            "setBrightness",
+            "setColorTemperature",
+            "setHsv",
+            "setRgb",
+            "lock",
+            "unlock",
+            "setFan",
+            "setTemperature",
+            "openEntry",
+            "closeEntry",
+            "start",
+            "stop",
+            "pause",
+            "resume",
+            "dock",
         ):
             object.__setattr__(self, command, AsyncMock())
         object.__setattr__(self, "getTemperatureMaxK", AsyncMock(return_value=6500))
         object.__setattr__(self, "getTemperatureMinK", AsyncMock(return_value=2000))
         object.__setattr__(self, "getVideoClips", AsyncMock(return_value=[]))
         object.__setattr__(self, "getVideoClip", AsyncMock(return_value=object()))
-        object.__setattr__(self, "getVideoClipThumbnail", AsyncMock(return_value=object()))
+        object.__setattr__(
+            self, "getVideoClipThumbnail", AsyncMock(return_value=object())
+        )
 
     def __getattr__(self, name):
+        """Read a device property from the manager's system state."""
         device_state = self._manager.systemState.get(self.id) or {}
         prop = device_state.get(name)
         if prop is None:
@@ -191,6 +487,8 @@ class FakeSystemManager:
 
 
 class FakeSDK:
+    """Mimics the scrypted sdk static object (systemManager and mediaManager)."""
+
     def __init__(self, system_state):
         self.systemManager = FakeSystemManager(system_state)
         self.mediaManager = SimpleNamespace(
@@ -206,6 +504,8 @@ class FakeSDK:
 
 
 class FakeTransport:
+    """Mimics EioRpcTransport, recording registered engine.io handlers."""
+
     def __init__(self):
         self.handlers = {}
         self.closed = False
@@ -251,7 +551,13 @@ DEFAULT_SYSTEM_STATE = {
         type="Doorbell",
         room=None,
         info={},
-        interfaces=["VideoCamera", "BinarySensor", "MotionSensor", "Intercom", "Online"],
+        interfaces=[
+            "VideoCamera",
+            "BinarySensor",
+            "MotionSensor",
+            "Intercom",
+            "Online",
+        ],
         binaryState=False,
         motionDetected=False,
         online=True,
@@ -287,7 +593,13 @@ DEFAULT_SYSTEM_STATE = {
         name="Desk Light",
         type="Light",
         info={},
-        interfaces=["OnOff", "Brightness", "ColorSettingTemperature", "ColorSettingHsv", "Online"],
+        interfaces=[
+            "OnOff",
+            "Brightness",
+            "ColorSettingTemperature",
+            "ColorSettingHsv",
+            "Online",
+        ],
         on=False,
         brightness=50,
         colorTemperature=3000,
@@ -370,6 +682,7 @@ def system_state():
 
 @pytest.fixture
 def fake_sdk(system_state):
+    """Return a fake scrypted SDK backed by the mutable system state."""
     return FakeSDK(system_state)
 
 

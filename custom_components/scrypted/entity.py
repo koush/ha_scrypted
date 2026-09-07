@@ -1,10 +1,13 @@
 """Base entity for Scrypted devices."""
+
 from __future__ import annotations
 
-import inspect
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+import inspect
 from typing import Any
+
+from scrypted_sdk import ScryptedInterface
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -13,7 +16,6 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from scrypted_sdk import ScryptedInterface
 
 from .const import (
     CONF_DEVICE_TYPES,
@@ -47,6 +49,8 @@ def device_matches(client: ScryptedClient, device_id: str, interface: str) -> bo
     Only devices whose scrypted type is in the configured allowlist
     (default: cameras and doorbells) are mirrored as entities.
     """
+    if client.sdk is None:
+        return False
     device = client.sdk.systemManager.getDeviceById(device_id)
     if device is None:
         return False
@@ -107,13 +111,16 @@ class ScryptedDeviceEntity(Entity):
         device_id: str,
         description,
     ) -> None:
+        """Initialize the entity for a scrypted device."""
         self.client = client
         self.entry = entry
         self.device_id = device_id
         self.entity_description = description
         self._attr_unique_id = f"{entry.entry_id}_{device_id}_{description.key}"
 
-        device = client.sdk.systemManager.getDeviceById(device_id)
+        sdk = client.sdk
+        assert sdk is not None  # entities are only created while connected
+        device = sdk.systemManager.getDeviceById(device_id)
         info = device.info or {}
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{device_id}")},
@@ -145,6 +152,7 @@ class ScryptedDeviceEntity(Entity):
 
     @property
     def available(self) -> bool:
+        """Return True when connected and the device is present and online."""
         if not self.client.connected:
             return False
         device = self.device
@@ -158,6 +166,7 @@ class ScryptedDeviceEntity(Entity):
         return True
 
     async def async_added_to_hass(self) -> None:
+        """Subscribe to device and connection updates."""
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
@@ -185,9 +194,7 @@ class ScryptedDeviceEntity(Entity):
         """Invoke a DeviceProxy RPC, surfacing failures as service-call errors."""
         device = self.device
         if device is None:
-            raise HomeAssistantError(
-                f"Scrypted device {self.device_id} is unavailable"
-            )
+            raise HomeAssistantError(f"Scrypted device {self.device_id} is unavailable")
         try:
             return await getattr(device, method)(*args)
         except HomeAssistantError:

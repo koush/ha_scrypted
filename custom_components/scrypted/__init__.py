@@ -1,18 +1,20 @@
 """The Scrypted integration."""
 
-import logging
 from dataclasses import dataclass
+import logging
 from typing import Any
 
 from aiohttp import ClientConnectorError, ClientResponseError
+from scrypted_sdk import ScryptedConnectionError
+
 from homeassistant.components.frontend import (
     async_register_built_in_panel,
     async_remove_panel,
 )
 from homeassistant.components.lovelace.const import (
     CONF_RESOURCE_TYPE_WS,
+    DOMAIN as LL_DOMAIN,
 )
-from homeassistant.components.lovelace.const import DOMAIN as LL_DOMAIN
 from homeassistant.components.lovelace.resources import (
     ResourceStorageCollection,
     ResourceYAMLCollection,
@@ -32,7 +34,6 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
-from scrypted_sdk import ScryptedConnectionError
 
 from .const import (
     CONF_AUTO_REGISTER_RESOURCES,
@@ -92,7 +93,9 @@ async def _async_register_lovelace_resource(
     if not lovelace_data or not lovelace_data.resources:
         return
 
-    resources: ResourceStorageCollection | ResourceYAMLCollection = lovelace_data.resources
+    resources: ResourceStorageCollection | ResourceYAMLCollection = (
+        lovelace_data.resources
+    )
     if not resources.loaded:
         await resources.async_load()
         resources.loaded = True
@@ -143,7 +146,7 @@ async def _async_register_lovelace_resource(
 
 
 async def _async_unregister_lovelace_resource(
-    hass: HomeAssistant, token: str, entry_id: str
+    hass: HomeAssistant, entry_id: str
 ) -> None:
     """Remove any Lovelace resources created for this entry.
 
@@ -166,7 +169,9 @@ async def _async_unregister_lovelace_resource(
             hass.data.pop(_RESOURCE_TRACKER, None)
         return
 
-    resources: ResourceStorageCollection | ResourceYAMLCollection = lovelace_data.resources
+    resources: ResourceStorageCollection | ResourceYAMLCollection = (
+        lovelace_data.resources
+    )
     if not resources.loaded:
         await resources.async_load()
         resources.loaded = True
@@ -253,9 +258,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
     changed = await _async_ensure_entry_options(hass, config_entry)
     if changed:
-        hass.async_create_task(
-            hass.config_entries.async_reload(config_entry.entry_id)
-        )
+        hass.async_create_task(hass.config_entries.async_reload(config_entry.entry_id))
         return False
 
     session = async_get_clientsession(hass, verify_ssl=False)
@@ -264,11 +267,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             return _reauth(config_entry.data)
     except Exception as e:
         if isinstance(e, ClientConnectorError):
-            raise ConfigEntryNotReady("ClientConnectorError. Is the Scrypted host down? Retrying.")
+            raise ConfigEntryNotReady(
+                "ClientConnectorError. Is the Scrypted host down? Retrying."
+            )
         if isinstance(e, ClientResponseError) and e.status in (401, 403):
             _LOGGER.warning(
                 "Scrypted authentication failed (HTTP %s) for %s; starting reauth flow.",
-                e.status, config_entry.title,
+                e.status,
+                config_entry.title,
             )
             return _reauth(config_entry.data)
         raise e
@@ -311,9 +317,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         "module_url": f"/api/{DOMAIN}/{token}/entrypoint.js",
     }
 
-    panelconf = {}
-    panelconf["_panel_custom"] = custom_panel_config
-    panelconf["version"] = "1.0.0"
+    panel_conf = {
+        "_panel_custom": custom_panel_config,
+        "version": "1.0.0",
+    }
 
     async_register_built_in_panel(
         hass,
@@ -321,14 +328,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         sidebar_title=config_entry.data[CONF_NAME],
         sidebar_icon=config_entry.data[CONF_ICON],
         frontend_url_path=f"{DOMAIN}_{token}",
-        config=panelconf,
+        config=panel_conf,
         require_admin=False,
     )
 
     # Set up token sensor
-    await hass.config_entries.async_forward_entry_setups(
-        config_entry, PLATFORMS
-    )
+    await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
     return True
 
 
@@ -380,7 +385,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
         if entry.entry_id == config_entry.entry_id
     )
 
-    await _async_unregister_lovelace_resource(hass, token, config_entry.entry_id)
+    await _async_unregister_lovelace_resource(hass, config_entry.entry_id)
 
     hass.data[DOMAIN].pop(token)
     if not hass.data[DOMAIN]:
@@ -389,18 +394,18 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
     return True
 
 
-async def _async_update_listener(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+async def _async_update_listener(
+    hass: HomeAssistant, config_entry: ConfigEntry
+) -> None:
     """Ensure option keys stay in the options dict and reload on change."""
-
     await _async_ensure_entry_options(hass, config_entry)
-    hass.async_create_task(
-        hass.config_entries.async_reload(config_entry.entry_id)
-    )
+    hass.async_create_task(hass.config_entries.async_reload(config_entry.entry_id))
 
 
-async def _async_ensure_entry_options(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+async def _async_ensure_entry_options(
+    hass: HomeAssistant, config_entry: ConfigEntry
+) -> bool:
     """Move option fields into options and ensure defaults exist."""
-
     data = dict(config_entry.data)
     options = dict(config_entry.options)
     changed = False
@@ -417,8 +422,6 @@ async def _async_ensure_entry_options(hass: HomeAssistant, config_entry: ConfigE
             changed = True
 
     if changed:
-        hass.config_entries.async_update_entry(
-            config_entry, data=data, options=options
-        )
+        hass.config_entries.async_update_entry(config_entry, data=data, options=options)
 
     return changed

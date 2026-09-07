@@ -5,18 +5,20 @@ scrypted-sdk package; this module only wires HA-managed aiohttp sessions into
 it. It is intentionally thin and I/O-bound; it is excluded from unit test
 coverage (see .coveragerc) and verified end-to-end with scripts/dev_connect.py.
 """
+
 from __future__ import annotations
 
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import (
-    async_create_clientsession,
-    async_get_clientsession,
-)
 from scrypted_sdk import (
     EioRpcTransport,
     ScryptedConnectionError,
     ScryptedStatic,
     connect_scrypted_client,
+)
+
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import (
+    async_create_clientsession,
+    async_get_clientsession,
 )
 
 __all__ = ["async_connect_sdk", "get_base_url"]

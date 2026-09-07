@@ -28,6 +28,7 @@ def make_remote_and_manager(system_state):
 
 
 def motion_details(**overrides):
+    """Build an EventDetails dict for a MotionSensor property event."""
     details = {
         "eventId": "e1",
         "eventTime": 1,
@@ -40,6 +41,7 @@ def motion_details(**overrides):
 
 
 async def test_property_event_updates_state_and_fires_system_listener():
+    """Property event updates state and fires system listener."""
     system_state = {"cam1": {"motionDetected": {"value": False}}}
     remote, manager = make_remote_and_manager(system_state)
 
@@ -57,6 +59,7 @@ async def test_property_event_updates_state_and_fires_system_listener():
 
 
 async def test_property_event_for_unknown_device_is_dropped():
+    """Property event for unknown device is dropped."""
     remote, manager = make_remote_and_manager({})
 
     calls = []
@@ -89,6 +92,7 @@ async def test_mixin_property_event_skips_state_and_dispatches_raw():
 
 
 async def test_stateless_event_reaches_device_listener_not_system_listener():
+    """Stateless event reaches device listener not system listener."""
     system_state = {"cam1": {"name": {"value": "Cam"}}}
     remote, manager = make_remote_and_manager(system_state)
 

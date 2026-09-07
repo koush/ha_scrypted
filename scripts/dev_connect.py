@@ -4,10 +4,11 @@ Usage:
     SCRYPTED_HOST=192.168.1.5:10443 SCRYPTED_USERNAME=u SCRYPTED_PASSWORD=p \
         ./venv/bin/python scripts/dev_connect.py
 """
+
 import asyncio
 import os
-import sys
 from pathlib import Path
+import sys
 from unittest.mock import MagicMock
 
 import aiohttp
@@ -18,6 +19,7 @@ from custom_components.scrypted import sdk as sdk_module  # noqa: E402
 
 
 async def main():
+    """Connect to the configured scrypted server and list its devices."""
     # Minimal HomeAssistant stand-in for async_connect_sdk.
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()

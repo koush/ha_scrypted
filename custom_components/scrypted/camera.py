@@ -4,16 +4,18 @@ Cameras are snapshot-only by design: live streaming is intentionally not
 supported so that users view live video through the scrypted NVR cards
 instead (upstream request).
 """
+
 from __future__ import annotations
 
 import logging
+
+from scrypted_sdk import ScryptedInterface
 
 from homeassistant.components.camera import Camera
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from scrypted_sdk import ScryptedInterface
 
 from .entity import ScryptedDeviceEntity, async_setup_scrypted_platform, device_matches
 from .hub import ScryptedClient
@@ -34,9 +36,7 @@ async def async_setup_entry(
     client = config_entry.runtime_data.client
 
     def _discover(device_id: str) -> list[ScryptedCamera]:
-        if not device_matches(
-            client, device_id, ScryptedInterface.VideoCamera.value
-        ):
+        if not device_matches(client, device_id, ScryptedInterface.VideoCamera.value):
             return []
         return [ScryptedCamera(client, config_entry, device_id, CAMERA_DESCRIPTION)]
 
@@ -57,6 +57,7 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
         device_id: str,
         description: EntityDescription,
     ) -> None:
+        """Initialize the camera entity."""
         Camera.__init__(self)
         ScryptedDeviceEntity.__init__(self, client, entry, device_id, description)
         # Exposed so users can cross-reference entities with scrypted NVR cards.
@@ -64,6 +65,7 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
 
     @property
     def is_recording(self) -> bool:
+        """Return True when the device reports an active recording."""
         device = self.device
         if device is None:
             return False
@@ -73,10 +75,10 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
 
     @property
     def motion_detection_enabled(self) -> bool:
+        """Return True when the device exposes a motion sensor."""
         device = self.device
         return bool(
-            device
-            and ScryptedInterface.MotionSensor.value in (device.interfaces or [])
+            device and ScryptedInterface.MotionSensor.value in (device.interfaces or [])
         )
 
     async def async_camera_image(

@@ -1,4 +1,5 @@
 """Tests for scrypted cameras (snapshot-only by design)."""
+
 from homeassistant.components.camera import (
     CameraEntityFeature,
     async_get_image,
@@ -11,6 +12,7 @@ from tests.conftest import setup_entry
 
 
 async def test_camera_created(hass, fake_sdk, enable_custom_integrations):
+    """Camera created."""
     await setup_entry(hass)
     state = hass.states.get("camera.porch_front_door_cam")
     assert state is not None
@@ -18,6 +20,7 @@ async def test_camera_created(hass, fake_sdk, enable_custom_integrations):
 
 
 async def test_camera_snapshot(hass, fake_sdk, enable_custom_integrations):
+    """Camera snapshot."""
     await setup_entry(hass)
     image = await async_get_image(hass, "camera.porch_front_door_cam")
     assert image.content == b"fake-jpeg"
@@ -25,9 +28,7 @@ async def test_camera_snapshot(hass, fake_sdk, enable_custom_integrations):
     fake_sdk.systemManager.getDeviceById("cam1").takePicture.assert_awaited()
 
 
-async def test_camera_has_no_stream_support(
-    hass, fake_sdk, enable_custom_integrations
-):
+async def test_camera_has_no_stream_support(hass, fake_sdk, enable_custom_integrations):
     """Live streaming is intentionally unsupported; NVR cards handle live view."""
     await setup_entry(hass)
     cam = get_camera_from_entity_id(hass, "camera.porch_front_door_cam")
@@ -37,6 +38,7 @@ async def test_camera_has_no_stream_support(
 
 
 async def test_camera_edge_cases(hass, fake_sdk, enable_custom_integrations):
+    """Camera edge cases."""
     await setup_entry(hass)
     cam = get_camera_from_entity_id(hass, "camera.porch_front_door_cam")
     bell = get_camera_from_entity_id(hass, "camera.doorbell")

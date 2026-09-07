@@ -1,10 +1,12 @@
 """Tests for ScryptedClient."""
+
 import asyncio
 from unittest.mock import patch
 
 import pytest
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from custom_components.scrypted import hub as hub_module
 from custom_components.scrypted.const import (
@@ -17,6 +19,7 @@ from custom_components.scrypted.hub import ScryptedClient
 
 @pytest.fixture
 def entry(hass):
+    """Return a minimal scrypted config entry registered with hass."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"host": "1.2.3.4", "username": "u", "password": "p"},
@@ -26,6 +29,7 @@ def entry(hass):
 
 
 async def test_connect_populates_devices(hass, entry, fake_sdk):
+    """Connect populates devices."""
     client = ScryptedClient(hass, entry)
     await client.async_connect()
     assert client.connected
@@ -35,6 +39,7 @@ async def test_connect_populates_devices(hass, entry, fake_sdk):
 
 
 async def test_state_change_dispatches_update(hass, entry, fake_sdk):
+    """State change dispatches update."""
     client = ScryptedClient(hass, entry)
     await client.async_connect()
 
@@ -51,6 +56,7 @@ async def test_state_change_dispatches_update(hass, entry, fake_sdk):
 
 
 async def test_unknown_device_dispatches_new_device(hass, entry, fake_sdk):
+    """Unknown device dispatches new device."""
     client = ScryptedClient(hass, entry)
     await client.async_connect()
 
@@ -58,7 +64,7 @@ async def test_unknown_device_dispatches_new_device(hass, entry, fake_sdk):
     async_dispatcher_connect(
         hass,
         SIGNAL_NEW_DEVICE.format(entry.entry_id),
-        lambda device_id: new.append(device_id),
+        new.append,
     )
     fake_sdk.systemManager.systemState["new1"] = {
         "name": {"value": "New Device"},
@@ -71,9 +77,7 @@ async def test_unknown_device_dispatches_new_device(hass, entry, fake_sdk):
     await client.async_disconnect()
 
 
-async def test_disconnect_triggers_reconnect(
-    hass, entry, fake_sdk, mock_connect_sdk
-):
+async def test_disconnect_triggers_reconnect(hass, entry, fake_sdk, mock_connect_sdk):
     """A dropped connection reconnects with backoff after a failed attempt."""
     with patch.object(hub_module, "RECONNECT_INITIAL_DELAY", 0):
         client = ScryptedClient(hass, entry)

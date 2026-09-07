@@ -1,12 +1,14 @@
 """Tests for discovery helpers."""
+
 from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import EntityDescription
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.scrypted.const import DOMAIN, SIGNAL_NEW_DEVICE
 from custom_components.scrypted.entity import (
@@ -29,6 +31,7 @@ MOTION_DESCRIPTION = MotionDescription(
 
 
 def make_client(fake_sdk, device_types=None):
+    """Build a minimal client stand-in exposing the fake SDK and options."""
     options = {}
     if device_types is not None:
         options["device_types"] = device_types
@@ -36,16 +39,26 @@ def make_client(fake_sdk, device_types=None):
 
 
 def test_device_matches_interface(fake_sdk):
+    """Device matches interface."""
     client = make_client(fake_sdk)
     assert device_matches(client, "cam1", "MotionSensor")
     assert not device_matches(client, "cam1", "FloodSensor")
 
 
+def test_device_matches_without_sdk(fake_sdk):
+    """Device matches is False when the client has no SDK connection."""
+    client = make_client(fake_sdk)
+    client.sdk = None
+    assert device_matches(client, "cam1", "VideoCamera") is False
+
+
 def test_device_matches_missing_device(fake_sdk):
+    """Device matches missing device."""
     assert not device_matches(make_client(fake_sdk), "nope", "MotionSensor")
 
 
 def test_default_allowlist_is_cameras_and_doorbells(fake_sdk):
+    """Default allowlist is cameras and doorbells."""
     client = make_client(fake_sdk)
     # leak1 is type Sensor: excluded by default, included when selected
     assert not device_matches(client, "leak1", "FloodSensor")
@@ -86,7 +99,9 @@ def test_entity_handles_missing_device_and_values(fake_sdk):
     assert entity.device is None
 
 
-async def test_ha_imported_devices_are_excluded(hass, fake_sdk, enable_custom_integrations):
+async def test_ha_imported_devices_are_excluded(
+    hass, fake_sdk, enable_custom_integrations
+):
     """Devices provided by @scrypted/homeassistant never round-trip into HA."""
     await setup_entry(hass)
     # haimport1 has VideoCamera + allowlisted type, but must produce nothing
@@ -98,6 +113,7 @@ async def test_ha_imported_devices_are_excluded(hass, fake_sdk, enable_custom_in
 async def test_setup_scrypted_platform_dedups_and_discovers_new(
     hass, fake_sdk, enable_custom_integrations
 ):
+    """Setup scrypted platform dedups and discovers new."""
     entry = await setup_entry(hass)
     added: list = []
     calls: list[str] = []
@@ -124,17 +140,21 @@ async def test_setup_scrypted_platform_dedups_and_discovers_new(
 
 
 async def test_setup_scrypted_platform_no_client(hass, enable_custom_integrations):
+    """Setup scrypted platform no client."""
     entry = SimpleNamespace(runtime_data=SimpleNamespace(client=None))
     await async_setup_scrypted_platform(hass, entry, lambda _: None, lambda d: [])
     # no exception is the assertion
 
 
 async def test_device_command_wraps_errors(hass, fake_sdk, enable_custom_integrations):
+    """Device command wraps errors."""
     entry = await setup_entry(hass)
     client = entry.runtime_data.client
     entity = ScryptedDeviceEntity(client, entry, "cam1", MOTION_DESCRIPTION)
     entity.entity_id = "camera.test"
-    fake_sdk.systemManager.getDeviceById("cam1").takePicture.side_effect = RuntimeError("boom")
+    fake_sdk.systemManager.getDeviceById("cam1").takePicture.side_effect = RuntimeError(
+        "boom"
+    )
     with pytest.raises(HomeAssistantError, match="takePicture"):
         await entity._async_device_command("takePicture")
 
@@ -145,8 +165,8 @@ async def test_device_command_wraps_errors(hass, fake_sdk, enable_custom_integra
 
     # a HomeAssistantError raised by the device method itself propagates
     # unwrapped, rather than being re-wrapped with a duplicated message.
-    fake_sdk.systemManager.getDeviceById("cam1").takePicture.side_effect = (
-        HomeAssistantError("already user-friendly")
-    )
+    fake_sdk.systemManager.getDeviceById(
+        "cam1"
+    ).takePicture.side_effect = HomeAssistantError("already user-friendly")
     with pytest.raises(HomeAssistantError, match="already user-friendly"):
         await entity._async_device_command("takePicture")
