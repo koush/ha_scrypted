@@ -21,6 +21,19 @@ in the integration options.
   intentionally not supported; use the Scrypted NVR cards for live view.
 - **Binary sensor** — motion, doorbell button, sound, occupancy, flood, entry,
   power, connectivity, tamper, charging, sleeping.
+- **Event** — object detection (`person`, `car`, … from the detector's
+  reported classes) and doorbell presses, usable as automation triggers.
+- **Sensor** — temperature, humidity, battery, illuminance, UV, CO2,
+  PM2.5/PM10, VOC, NOx, air quality.
+- **Media player** — intercom-capable devices (doorbells, two-way cameras)
+  become speaker entities: point `media_player.play_media`, TTS, or announce
+  at them to talk through the camera speaker.
+- **Switch, lock, cover, light, fan, vacuum, climate** — controllable
+  Scrypted devices of those types, once their device type is enabled in the
+  options.
+
+Scrypted NVR detection clips are also available in the Home Assistant media
+browser (camera → day → clip) and play through HA's stream component.
 
 State updates are pushed; no polling. Entities reconnect automatically if the
 server restarts.
