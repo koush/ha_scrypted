@@ -16,7 +16,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .entity import ScryptedDeviceEntity, async_setup_scrypted_platform, device_matches
+from .entity import (
+    ScryptedDeviceEntity,
+    async_setup_scrypted_platform,
+    exposed_device,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,10 +51,11 @@ async def async_setup_entry(
 
     async def _discover(device_id: str) -> list[EventEntity]:
         entities: list[EventEntity] = []
-        device = client.sdk.systemManager.getDeviceById(device_id)
+        device = exposed_device(client, device_id)
         if device is None:
             return entities
-        if device_matches(client, device_id, ScryptedInterface.ObjectDetector.value):
+        interfaces = device.interfaces or []
+        if ScryptedInterface.ObjectDetector.value in interfaces:
             event_types = await _async_object_event_types(device)
             if event_types:
                 entities.append(
@@ -58,8 +63,9 @@ async def async_setup_entry(
                         client, config_entry, device_id, OBJECT_DETECTED, event_types
                     )
                 )
-        if device.type == "Doorbell" and device_matches(
-            client, device_id, ScryptedInterface.BinarySensor.value
+        if (
+            device.type == "Doorbell"
+            and ScryptedInterface.BinarySensor.value in interfaces
         ):
             entities.append(
                 ScryptedDoorbellEvent(client, config_entry, device_id, DOORBELL)

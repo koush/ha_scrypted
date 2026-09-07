@@ -6,10 +6,13 @@ from types import SimpleNamespace
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from homeassistant.const import CONF_HOST
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import EntityDescription
 
+from custom_components import scrypted
 from custom_components.scrypted.const import DOMAIN, SIGNAL_NEW_DEVICE
 from custom_components.scrypted.entity import (
     ScryptedDeviceEntity,
@@ -170,3 +173,47 @@ async def test_device_command_wraps_errors(hass, fake_sdk, enable_custom_integra
     ).takePicture.side_effect = HomeAssistantError("already user-friendly")
     with pytest.raises(HomeAssistantError, match="already user-friendly"):
         await entity._async_device_command("takePicture")
+
+
+async def test_new_device_while_disconnected_does_not_raise(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """A new-device signal arriving after the SDK dropped is ignored quietly."""
+    entry = await setup_entry(
+        hass,
+        device_types=[
+            "Camera",
+            "Doorbell",
+            "Sensor",
+            "Thermostat",
+            "Vacuum",
+            "Fan",
+            "Light",
+            "Garage",
+            "Lock",
+            "Switch",
+            "Outlet",
+        ],
+    )
+    before = len(hass.states.async_all())
+
+    # Every platform's discovery runs on this signal; none may touch the
+    # dropped SDK.
+    entry.runtime_data.client.sdk = None
+    async_dispatcher_send(hass, SIGNAL_NEW_DEVICE.format(entry.entry_id), "thermo1")
+    await hass.async_block_till_done()
+
+    assert len(hass.states.async_all()) == before
+
+
+async def test_remove_device_without_runtime_data(hass, fake_sdk):
+    """Device removal works while the entry is not loaded."""
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "example"})
+    entry.add_to_hass(hass)
+    device_entry = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, f"{entry.entry_id}_ghost")},
+    )
+    # Entry never set up, so HA never assigned runtime_data.
+    assert not hasattr(entry, "runtime_data")
+    assert await scrypted.async_remove_config_entry_device(hass, entry, device_entry)

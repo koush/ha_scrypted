@@ -46,23 +46,31 @@ class ScryptedEntityDescriptionMixin:
     value_fn: Callable[[Any], Any] = lambda value: value
 
 
-def device_matches(client: ScryptedClient, device_id: str, interface: str) -> bool:
-    """Return True if the device should produce an entity for interface.
+def exposed_device(client: ScryptedClient | None, device_id: str) -> Any:
+    """Return the DeviceProxy when this device should produce entities.
 
-    Only devices whose scrypted type is in the configured allowlist
-    (default: cameras and doorbells) are mirrored as entities.
+    A device is exposed when the connection is live, scrypted still knows the
+    device, it is not one Home Assistant itself exported to scrypted, and its
+    type is in the configured allowlist (default: cameras and doorbells).
+    Returns None otherwise, so callers never touch a dropped SDK.
     """
-    if client.sdk is None:
-        return False
+    if client is None or client.sdk is None:
+        return None
     device = client.sdk.systemManager.getDeviceById(device_id)
     if device is None:
-        return False
+        return None
     if device.pluginId == HA_PLUGIN_ID:
-        return False
+        return None
     allowed_types = client.entry.options.get(CONF_DEVICE_TYPES, DEFAULT_DEVICE_TYPES)
     if (device.type or "Unknown") not in allowed_types:
-        return False
-    return interface in (device.interfaces or [])
+        return None
+    return device
+
+
+def device_matches(client: ScryptedClient, device_id: str, interface: str) -> bool:
+    """Return True if the device should produce an entity for interface."""
+    device = exposed_device(client, device_id)
+    return device is not None and interface in (device.interfaces or [])
 
 
 async def async_setup_scrypted_platform(

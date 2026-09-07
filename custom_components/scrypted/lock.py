@@ -16,7 +16,7 @@ from .entity import (
     ScryptedDeviceEntity,
     ScryptedEntityDescriptionMixin,
     async_setup_scrypted_platform,
-    device_matches,
+    exposed_device,
 )
 
 
@@ -42,12 +42,12 @@ async def async_setup_entry(
     client = config_entry.runtime_data.client
 
     def _discover(device_id: str) -> list[ScryptedLock]:
-        if client.sdk is None:
-            return []
-        device = client.sdk.systemManager.getDeviceById(device_id)
-        if device is None or device.type != "Lock":
-            return []
-        if not device_matches(client, device_id, LOCK.interface):
+        device = exposed_device(client, device_id)
+        if (
+            device is None
+            or device.type != "Lock"
+            or LOCK.interface not in (device.interfaces or [])
+        ):
             return []
         return [ScryptedLock(client, config_entry, device_id, LOCK)]
 

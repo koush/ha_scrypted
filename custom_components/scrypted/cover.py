@@ -21,7 +21,7 @@ from .entity import (
     ScryptedDeviceEntity,
     ScryptedEntityDescriptionMixin,
     async_setup_scrypted_platform,
-    device_matches,
+    exposed_device,
 )
 
 COVER_DEVICE_CLASSES = {
@@ -53,10 +53,12 @@ async def async_setup_entry(
     client = config_entry.runtime_data.client
 
     def _discover(device_id: str) -> list[ScryptedCover]:
-        device = client.sdk.systemManager.getDeviceById(device_id)
-        if device is None or (device.type or "") not in COVER_DEVICE_CLASSES:
-            return []
-        if not device_matches(client, device_id, COVER.interface):
+        device = exposed_device(client, device_id)
+        if (
+            device is None
+            or (device.type or "") not in COVER_DEVICE_CLASSES
+            or COVER.interface not in (device.interfaces or [])
+        ):
             return []
         return [ScryptedCover(client, config_entry, device_id, COVER)]
 
