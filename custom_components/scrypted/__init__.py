@@ -328,6 +328,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         "name": "ha-panel-scrypted",
         # "embed_iframe": True,
         "trust_external": False,
+        # The panel sizes itself against the viewport, so it has to own the
+        # safe-area insets too. Without this HA also pads the panel container
+        # and the two disagree, pushing the bottom of the iframe off-screen.
+        "handle_safe_area": True,
         "module_url": f"/api/{DOMAIN}/{token}/entrypoint.js",
     }
 

@@ -776,3 +776,36 @@ async def test_failed_connect_does_not_publish_token(hass, mock_forward_entry_se
     # The proxy view resolves entries through hass.data; a token left there
     # would keep serving an entry that never loaded.
     assert not hass.data.get(DOMAIN)
+
+
+async def test_panel_opts_out_of_automatic_safe_area_padding(
+    hass, mock_register_built_in_panel, mock_forward_entry_setups
+):
+    """The panel handles safe-area insets itself, so HA must not also pad it."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: EXAMPLE_HOST,
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await scrypted.async_setup_entry(hass, entry)
+
+    # entrypoint.js sizes :host against the viewport and subtracts the insets
+    # itself. If HA also padded the container the two boxes would disagree and
+    # the bottom of the iframe would land off-screen on a device with a home
+    # indicator.
+    panel_custom = mock_register_built_in_panel.captured_kwargs["config"][
+        "_panel_custom"
+    ]
+    assert panel_custom["handle_safe_area"] is True

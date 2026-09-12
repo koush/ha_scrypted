@@ -43,10 +43,28 @@ class ExamplePanel extends LitElement {
             /* HA 2026.8 stopped giving custom panel elements an implicit
                height (partial-panel-resolver is now height:auto), so a
                percentage chain collapses to a 0-height iframe. Size the
-               host against the viewport instead. */
+               host against the viewport instead.
+
+               The viewport includes the notch and home indicator, so the
+               insets have to come off again or the bottom of the iframe
+               lands underneath them. HA would do that for us, but it pads
+               the panel container while this height is set here, and the
+               two boxes disagree. The panel config sets handle_safe_area
+               so HA leaves the padding alone and this element owns both. */
             display: block;
+            box-sizing: border-box;
             height: 100vh;
             height: 100dvh;
+            padding-top: var(--safe-area-inset-top, 0px);
+            padding-bottom: var(--safe-area-inset-bottom, 0px);
+            padding-left: var(
+                --safe-area-content-inset-left,
+                var(--safe-area-inset-left, 0px)
+            );
+            padding-right: var(
+                --safe-area-content-inset-right,
+                var(--safe-area-inset-right, 0px)
+            );
         }
         iframe {
             border: 0;
