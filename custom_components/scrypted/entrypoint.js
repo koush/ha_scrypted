@@ -4,6 +4,10 @@ import {
     css,
 } from "./lit-core.min.js";
 
+// mdi:menu. Inlined so the toggle never depends on another element being
+// registered by the time this panel loads.
+const MENU_ICON_PATH = "M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z";
+
 class ExamplePanel extends LitElement {
     static get properties() {
         return {
@@ -16,12 +20,19 @@ class ExamplePanel extends LitElement {
     render() {
         return html`
         <div style="height: 100%; display: flex; flex-direction: column;">
-            <div style="display: flex; align-items: center;">
-                <ha-menu-button
-                slot="navigationIcon"
-                .hass=${this.hass}
-                .narrow=${this.narrow}
-                ></ha-menu-button>
+            <div class="toolbar">
+                ${this._showMenuButton ? html`
+                    <button
+                        class="menu"
+                        aria-label="Toggle menu"
+                        title="Toggle menu"
+                        @click=${this._toggleMenu}
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="${MENU_ICON_PATH}"></path>
+                        </svg>
+                    </button>
+                ` : ""}
                 ${this.narrow ? html`
                     <div>Home Assistant: Scrypted</div>
                 ` : ""}
@@ -35,6 +46,25 @@ class ExamplePanel extends LitElement {
             </div>
         </div>
     `;
+    }
+
+    get _showMenuButton() {
+        /* ha-menu-button decides this from Lit context rather than from the
+           properties it is given, and renders nothing when that context is
+           missing. On a phone the sidebar is hidden, so losing the button
+           leaves no way out of the panel short of force-quitting the app.
+           Same rule, but read from what Home Assistant hands this panel. */
+        return this.narrow || this.hass?.dockedSidebar === "always_hidden";
+    }
+
+    _toggleMenu() {
+        /* What ha-menu-button fires. composed so it leaves this shadow root. */
+        this.dispatchEvent(
+            new CustomEvent("hass-toggle-menu", {
+                bubbles: true,
+                composed: true,
+            })
+        );
     }
 
     static get styles() {
@@ -65,6 +95,24 @@ class ExamplePanel extends LitElement {
                 --safe-area-content-inset-right,
                 var(--safe-area-inset-right, 0px)
             );
+        }
+        .toolbar {
+            display: flex;
+            align-items: center;
+        }
+        .menu {
+            display: flex;
+            padding: 12px;
+            border: 0;
+            background: none;
+            color: var(--primary-text-color);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .menu svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
         }
         iframe {
             border: 0;
