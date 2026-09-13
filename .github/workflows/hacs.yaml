@@ -17,3 +17,6 @@ jobs:
         uses: "hacs/action@main"
         with:
           category: "integration"
+          # Repository description and topics are GitHub settings rather than
+          # anything in the code, so they are not checked here.
+          ignore: "description topics"
