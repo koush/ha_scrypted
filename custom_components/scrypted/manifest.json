@@ -4,7 +4,7 @@
   "after_dependencies": ["media_source"],
   "codeowners": ["@koush"],
   "config_flow": true,
-  "dependencies": ["http", "frontend", "lovelace"],
+  "dependencies": ["http", "frontend", "lovelace", "media_source", "stream"],
   "documentation": "https://github.com/koush/ha_scrypted",
   "homekit": {},
   "integration_type": "service",
