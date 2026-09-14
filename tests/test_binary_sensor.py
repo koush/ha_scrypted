@@ -6,6 +6,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
+from custom_components.scrypted import ScryptedRuntimeData
 from custom_components.scrypted.binary_sensor import (
     BINARY_SENSORS,
     ScryptedBinarySensor,
@@ -96,6 +97,9 @@ def test_binary_sensor_is_on_none_when_property_missing(fake_sdk):
     client = SimpleNamespace(sdk=fake_sdk, connected=True)
     entry = MockConfigEntry(domain=DOMAIN)
     description = next(d for d in BINARY_SENSORS if d.key == "motion")
+    entry.runtime_data = ScryptedRuntimeData(
+        token="token", client=client, hub_device_id="hub"
+    )
     entity = ScryptedBinarySensor(client, entry, "cam1", description)
     fake_sdk.systemManager.systemState["cam1"].pop("motionDetected")
     assert entity.is_on is None

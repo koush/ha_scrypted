@@ -8,7 +8,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.const import CONF_HOST
 
-from custom_components.scrypted import sensor
+from custom_components.scrypted import ScryptedRuntimeData, sensor
 from custom_components.scrypted.const import DOMAIN
 from custom_components.scrypted.sensor import SENSORS, ScryptedSensor
 from tests.conftest import setup_entry
@@ -67,6 +67,9 @@ def test_sensor_native_value_none(fake_sdk):
     client = SimpleNamespace(sdk=fake_sdk, connected=True)
     entry = MockConfigEntry(domain=DOMAIN)
     description = next(d for d in SENSORS if d.key == "temperature")
+    entry.runtime_data = ScryptedRuntimeData(
+        token="token", client=client, hub_device_id="hub"
+    )
     entity = ScryptedSensor(client, entry, "leak1", description)
     fake_sdk.systemManager.systemState["leak1"].pop("temperature")
     assert entity.native_value is None

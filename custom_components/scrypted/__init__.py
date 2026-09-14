@@ -55,6 +55,9 @@ class ScryptedRuntimeData:
 
     token: str
     client: ScryptedClient | None
+    # Registry id of the device representing the scrypted server. Device
+    # entities link to it through via_device_id; None when entities are off.
+    hub_device_id: str | None = None
 
 
 PLATFORMS = [
@@ -295,6 +298,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     )
 
     client: ScryptedClient | None = None
+    hub_device_id: str | None = None
     if config_entry.options.get(CONF_ENABLE_ENTITIES, True):
         client = ScryptedClient(hass, config_entry)
         try:
@@ -307,19 +311,22 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             ) from err
 
         device_registry = dr.async_get(hass)
-        device_registry.async_get_or_create(
+        hub_device = device_registry.async_get_or_create(
             config_entry_id=config_entry.entry_id,
             identifiers={(DOMAIN, config_entry.entry_id)},
             manufacturer="Scrypted",
             name=config_entry.data[CONF_NAME],
             configuration_url=get_base_url(config_entry.data[CONF_HOST]),
         )
+        hub_device_id = hub_device.id
 
     # Published only once setup can no longer fail: the proxy view and the
     # token sensor resolve entries through this mapping, and a failed setup
     # never reaches async_unload_entry to clean it up again.
     hass.data.setdefault(DOMAIN, {})[token] = config_entry
-    config_entry.runtime_data = ScryptedRuntimeData(token=token, client=client)
+    config_entry.runtime_data = ScryptedRuntimeData(
+        token=token, client=client, hub_device_id=hub_device_id
+    )
 
     if config_entry.options.get(CONF_AUTO_REGISTER_RESOURCES):
         await _async_register_lovelace_resource(hass, token, config_entry.entry_id)

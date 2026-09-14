@@ -133,6 +133,11 @@ class ScryptedDeviceEntity(Entity):
         assert sdk is not None  # entities are only created while connected
         device = sdk.systemManager.getDeviceById(device_id)
         info = device.info or {}
+        # via_device took an identifier tuple, which the registry had to guess
+        # how to resolve since identifiers are not unique across config
+        # entries. It is deprecated in favour of the hub's registry id.
+        hub_device_id = entry.runtime_data.hub_device_id
+        assert hub_device_id is not None  # registered alongside the client
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{device_id}")},
             name=device.name,
@@ -141,7 +146,7 @@ class ScryptedDeviceEntity(Entity):
             sw_version=info.get("version") or info.get("firmware"),
             serial_number=info.get("serialNumber"),
             suggested_area=device.room,
-            via_device=(DOMAIN, entry.entry_id),
+            via_device_id=hub_device_id,
             configuration_url=info.get("managementUrl"),
         )
 
