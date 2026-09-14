@@ -345,6 +345,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     panel_conf = {
         "_panel_custom": custom_panel_config,
         "version": "1.0.0",
+        # Every entry shares one panel element, so the element reads which
+        # entry's page to show from here rather than from its own source.
+        "iframe_url": f"/api/{DOMAIN}/{token}/entrypoint.html",
     }
 
     async_register_built_in_panel(

@@ -693,3 +693,42 @@ def test_load_files():
         assert view.entrypoint_html.result() == "html content"
     finally:
         loop.close()
+
+
+@pytest.mark.parametrize(
+    ("cookie", "expected"),
+    [
+        ("login_user_token=s%3Aabc; theme=dark", "theme=dark"),
+        ("theme=dark; login_user_token_insecure=s%3Aabc", "theme=dark"),
+        # values may contain "=", and whitespace around names is tolerated
+        (" a=b=c ;  login_user_token = x ; d=e", "a=b=c; d=e"),
+        # only other cookies' names that merely contain the word are kept
+        ("my_login_user_token=keep", "my_login_user_token=keep"),
+        ("login_user_token=only", ""),
+    ],
+)
+def test_strip_login_cookies(cookie, expected):
+    """Only Scrypted's own login cookies are removed."""
+    assert http._strip_login_cookies(cookie) == expected
+
+
+@pytest.mark.parametrize("header_name", ["Cookie", "cookie", "COOKIE"])
+def test_init_header_drops_scrypted_login_cookie(mock_web_request, header_name):
+    """The per-entry bearer token must decide the Scrypted user, not a browser cookie."""
+    request = mock_web_request(
+        headers={header_name: "login_user_token=s%3Afull-user; theme=dark"}
+    )
+
+    headers = http._init_header(request)
+
+    forwarded = {name.lower(): value for name, value in headers.items()}
+    assert forwarded["cookie"] == "theme=dark"
+
+
+def test_init_header_omits_cookie_holding_only_the_login(mock_web_request):
+    """With nothing left after stripping, no Cookie header is forwarded at all."""
+    request = mock_web_request(headers={hdrs.COOKIE: "login_user_token=s%3Afull-user"})
+
+    headers = http._init_header(request)
+
+    assert all(name.lower() != "cookie" for name in headers)

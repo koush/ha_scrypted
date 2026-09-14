@@ -38,14 +38,26 @@ class ExamplePanel extends LitElement {
                 ` : ""}
             </div>
             <div style="flex: 1; position: relative;">
-                <iframe
-                    title="Scrypted"
-                    src="/api/__DOMAIN__/__TOKEN__/entrypoint.html"
-                    allow="fullscreen"
-                ></iframe>
+                ${this._iframeUrl ? html`
+                    <iframe
+                        title="Scrypted"
+                        src=${this._iframeUrl}
+                        allow="fullscreen"
+                    ></iframe>
+                ` : ""}
             </div>
         </div>
     `;
+    }
+
+    get _iframeUrl() {
+        /* Read from this panel's config rather than baked into the module.
+           Every Scrypted entry registers this same element, and a browser
+           defines a custom element name once: whichever entry's module loads
+           first supplies the class for all of them. With the entry's URL in
+           the module source, every panel would show that first entry's
+           Scrypted user. */
+        return this.panel?.config?.iframe_url;
     }
 
     get _showMenuButton() {
@@ -124,4 +136,9 @@ class ExamplePanel extends LitElement {
     `;
     }
 }
-customElements.define("ha-panel-scrypted", ExamplePanel);
+// Each entry loads this module from its own URL, so it can run more than once
+// in a page. Redefining a custom element name throws, which would abort every
+// module after the first.
+if (!customElements.get("ha-panel-scrypted")) {
+    customElements.define("ha-panel-scrypted", ExamplePanel);
+}

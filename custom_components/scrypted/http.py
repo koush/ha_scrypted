@@ -291,6 +291,23 @@ class ScryptedView(HomeAssistantView):
             return response
 
 
+# Scrypted authenticates a signed login cookie ahead of the bearer token this
+# proxy adds, and sets that cookie with path "/". Forwarded as-is, one login in
+# any panel on this Home Assistant origin would override the configured user of
+# every Scrypted entry, including one set up with restricted permissions.
+SCRYPTED_LOGIN_COOKIES = frozenset({"login_user_token", "login_user_token_insecure"})
+
+
+def _strip_login_cookies(cookie_header: str) -> str:
+    """Drop Scrypted's login cookies, leaving any others untouched."""
+    kept = []
+    for part in cookie_header.split(";"):
+        cookie = part.strip()
+        if cookie and cookie.split("=", 1)[0].strip() not in SCRYPTED_LOGIN_COOKIES:
+            kept.append(cookie)
+    return "; ".join(kept)
+
+
 def _init_header(request: web.Request) -> CIMultiDict | dict[str, str]:
     """Create initial header."""
     headers = {}
@@ -309,6 +326,12 @@ def _init_header(request: web.Request) -> CIMultiDict | dict[str, str]:
             hdrs.HOST,
         ):
             continue
+        # Compared case-insensitively: this must not depend on the parser
+        # having canonicalised the header name.
+        if name.lower() == "cookie":
+            value = _strip_login_cookies(value)
+            if not value:
+                continue
         headers[name] = value
 
     # Set X-Forwarded-For
