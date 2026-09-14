@@ -809,3 +809,32 @@ async def test_panel_opts_out_of_automatic_safe_area_padding(
         "_panel_custom"
     ]
     assert panel_custom["handle_safe_area"] is True
+
+
+async def test_panel_config_names_its_own_entry(
+    hass, mock_register_built_in_panel, mock_forward_entry_setups
+):
+    """Each panel's config carries its entry's page, not a shared one."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_HOST: EXAMPLE_HOST,
+            CONF_ICON: "mdi:test",
+            CONF_NAME: "Scrypted",
+            CONF_USERNAME: "user",
+        },
+        options={
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: False,
+            "device_types": ["Camera", "Doorbell"],
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await scrypted.async_setup_entry(hass, entry)
+
+    # All entries share the ha-panel-scrypted element, which reads this to
+    # decide which entry's Scrypted page to show.
+    config = mock_register_built_in_panel.captured_kwargs["config"]
+    assert config["iframe_url"] == f"/api/{DOMAIN}/token/entrypoint.html"
