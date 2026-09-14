@@ -1,12 +1,16 @@
 """Tests for scrypted cameras (snapshot-only by design)."""
 
 from homeassistant.components.camera import (
+    CAMERA_IMAGE_TIMEOUT,
+    DOMAIN as CAMERA_DOMAIN,
+    SERVICE_SNAPSHOT,
     CameraEntityFeature,
     async_get_image,
     get_camera_from_entity_id,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
+from custom_components.scrypted.camera import FRESH_PICTURE_TIMEOUT_MS
 from custom_components.scrypted.const import SIGNAL_CONNECTION
 from tests.conftest import setup_entry
 
@@ -78,3 +82,43 @@ async def test_camera_updates_on_events(hass, fake_sdk, enable_custom_integratio
     async_dispatcher_send(hass, SIGNAL_CONNECTION.format(entry.entry_id), False)
     await hass.async_block_till_done()
     assert hass.states.get("camera.porch_front_door_cam").state == "unavailable"
+
+
+async def test_snapshot_service_requests_a_fresh_frame(
+    hass, fake_sdk, enable_custom_integrations, tmp_path
+):
+    """camera.snapshot asks scrypted for an event capture, never a cached one."""
+    await setup_entry(hass)
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+    target = tmp_path / "snap.jpg"
+
+    await hass.services.async_call(
+        CAMERA_DOMAIN,
+        SERVICE_SNAPSHOT,
+        {"entity_id": "camera.porch_front_door_cam", "filename": str(target)},
+        blocking=True,
+    )
+
+    assert target.read_bytes() == b"fake-jpeg"
+    fake_sdk.systemManager.getDeviceById("cam1").takePicture.assert_awaited_once_with(
+        {"reason": "event", "timeout": FRESH_PICTURE_TIMEOUT_MS}
+    )
+
+
+async def test_thumbnail_keeps_cache_friendly_request(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """A request with dimensions is a thumbnail refresh, where a recent image is fine."""
+    await setup_entry(hass)
+
+    image = await async_get_image(
+        hass, "camera.porch_front_door_cam", width=320, height=180
+    )
+
+    assert image.content == b"fake-jpeg"
+    fake_sdk.systemManager.getDeviceById("cam1").takePicture.assert_awaited_once_with()
+
+
+def test_fresh_picture_timeout_finishes_before_home_assistant_gives_up():
+    """Scrypted's wait must end inside Home Assistant's own image timeout."""
+    assert 0 < FRESH_PICTURE_TIMEOUT_MS < CAMERA_IMAGE_TIMEOUT * 1000

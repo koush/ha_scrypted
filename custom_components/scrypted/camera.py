@@ -11,7 +11,7 @@ import logging
 
 from scrypted_sdk import ScryptedInterface
 
-from homeassistant.components.camera import Camera
+from homeassistant.components.camera import CAMERA_IMAGE_TIMEOUT, Camera
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityDescription
@@ -25,6 +25,11 @@ _LOGGER = logging.getLogger(__name__)
 # A real EntityDescription so Entity internals (entity_registry_enabled_default,
 # icon resolution, etc.) behave; cameras are not table-driven.
 CAMERA_DESCRIPTION = EntityDescription(key="camera", name=None)
+
+# How long scrypted may spend capturing a fresh frame. It must finish inside
+# Home Assistant's own image timeout, with room left for the RPC round trip and
+# the JPEG conversion; if both sides waited the full timeout they would race.
+FRESH_PICTURE_TIMEOUT_MS = (CAMERA_IMAGE_TIMEOUT - 2) * 1000
 
 
 async def async_setup_entry(
@@ -84,13 +89,27 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
     async def async_camera_image(
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
-        """Snapshot via Camera.takePicture, falling back to the video stream."""
+        """Snapshot via Camera.takePicture, falling back to the video stream.
+
+        Without a reason, scrypted's snapshot plugin shares a capture across
+        requests made within a few seconds and quietly returns a cached image
+        when a fresh one is slow, so the frame can be several seconds old.
+        That is right for thumbnail refreshes, which is how Home Assistant asks
+        when it passes dimensions. A request without dimensions, such as the
+        camera.snapshot service, wants the frame as of now, so it asks for an
+        event capture: never shared, never served from cache.
+        """
         device = self.device
         if device is None or not self.client.sdk:
             return None
         try:
             if ScryptedInterface.Camera.value in (device.interfaces or []):
-                media_object = await device.takePicture()
+                if width is None and height is None:
+                    media_object = await device.takePicture(
+                        {"reason": "event", "timeout": FRESH_PICTURE_TIMEOUT_MS}
+                    )
+                else:
+                    media_object = await device.takePicture()
             else:
                 media_object = await device.getVideoStream()
             buffer = await self.client.sdk.mediaManager.convertMediaObjectToBuffer(
