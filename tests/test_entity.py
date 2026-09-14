@@ -13,6 +13,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import EntityDescription
 
 from custom_components import scrypted
+from custom_components.scrypted import ScryptedRuntimeData
 from custom_components.scrypted.const import DOMAIN, SIGNAL_NEW_DEVICE
 from custom_components.scrypted.entity import (
     ScryptedDeviceEntity,
@@ -76,6 +77,9 @@ def test_entity_handles_missing_device_and_values(fake_sdk):
     """Entities degrade gracefully when state or devices disappear."""
     client = SimpleNamespace(sdk=fake_sdk, connected=True)
     entry = MockConfigEntry(domain=DOMAIN)
+    entry.runtime_data = ScryptedRuntimeData(
+        token="token", client=client, hub_device_id="hub"
+    )
     entity = ScryptedDeviceEntity(client, entry, "cam1", MOTION_DESCRIPTION)
 
     # missing property value -> unknown
@@ -217,3 +221,31 @@ async def test_remove_device_without_runtime_data(hass, fake_sdk):
     # Entry never set up, so HA never assigned runtime_data.
     assert not hasattr(entry, "runtime_data")
     assert await scrypted.async_remove_config_entry_device(hass, entry, device_entry)
+
+
+async def test_device_entities_are_grouped_under_the_hub(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """Each scrypted device links to the hub device representing the server."""
+    entry = await setup_entry(hass)
+    registry = dr.async_get(hass)
+
+    hub = registry.async_get_device_by_identifier(
+        (DOMAIN, entry.entry_id), entry.entry_id
+    )
+    cam = registry.async_get_device_by_identifier(
+        (DOMAIN, f"{entry.entry_id}_cam1"), entry.entry_id
+    )
+
+    assert hub is not None and cam is not None
+    assert entry.runtime_data.hub_device_id == hub.id
+    assert cam.via_device_id == hub.id
+
+
+async def test_setup_does_not_use_deprecated_via_device(
+    hass, fake_sdk, enable_custom_integrations, caplog
+):
+    """Regression for #63: link devices by registry id, not identifier tuple."""
+    await setup_entry(hass)
+
+    assert "deprecated `via_device`" not in caplog.text
