@@ -25,6 +25,8 @@ from .const import (
     SIGNAL_CONNECTION,
     SIGNAL_DEVICE_UPDATE,
     SIGNAL_NEW_DEVICE,
+    SMART_SENSOR_PLUGIN_ID,
+    SMART_SENSOR_TYPE,
 )
 from .hub import ScryptedClient
 
@@ -51,7 +53,8 @@ def exposed_device(client: ScryptedClient | None, device_id: str) -> Any:
 
     A device is exposed when the connection is live, scrypted still knows the
     device, it is not one Home Assistant itself exported to scrypted, and its
-    type is in the configured allowlist (default: cameras and doorbells).
+    type is in the configured allowlist (default: cameras and doorbells) or it
+    is an object detection plugin smart sensor.
     Returns None otherwise, so callers never touch a dropped SDK.
     """
     if client is None or client.sdk is None:
@@ -61,6 +64,8 @@ def exposed_device(client: ScryptedClient | None, device_id: str) -> Any:
         return None
     if device.pluginId == HA_PLUGIN_ID:
         return None
+    if device.pluginId == SMART_SENSOR_PLUGIN_ID and device.type == SMART_SENSOR_TYPE:
+        return device
     allowed_types = client.entry.options.get(CONF_DEVICE_TYPES, DEFAULT_DEVICE_TYPES)
     if (device.type or "Unknown") not in allowed_types:
         return None

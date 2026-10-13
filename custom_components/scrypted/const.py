@@ -40,3 +40,10 @@ DEFAULT_DEVICE_TYPES = ["Camera", "Doorbell"]
 # scrypted plugin that imports HA entities into scrypted; mirroring those
 # back would duplicate entities and loop commands through two hops.
 HA_PLUGIN_ID = "@scrypted/homeassistant"
+
+# scrypted plugin whose Smart Motion/Occupancy Sensors (type Sensor) filter a
+# camera's detections by object class. They exist only in scrypted, so unlike
+# Sensor devices bridged from Ring, UniFi or MQTT they never duplicate an HA
+# integration and are exposed regardless of the type allowlist.
+SMART_SENSOR_PLUGIN_ID = "@scrypted/objectdetector"
+SMART_SENSOR_TYPE = "Sensor"

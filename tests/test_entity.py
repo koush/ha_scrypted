@@ -14,14 +14,18 @@ from homeassistant.helpers.entity import EntityDescription
 
 from custom_components import scrypted
 from custom_components.scrypted import ScryptedRuntimeData
-from custom_components.scrypted.const import DOMAIN, SIGNAL_NEW_DEVICE
+from custom_components.scrypted.const import (
+    DEFAULT_DEVICE_TYPES,
+    DOMAIN,
+    SIGNAL_NEW_DEVICE,
+)
 from custom_components.scrypted.entity import (
     ScryptedDeviceEntity,
     ScryptedEntityDescriptionMixin,
     async_setup_scrypted_platform,
     device_matches,
 )
-from tests.conftest import setup_entry
+from tests.conftest import setup_entry, state
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -71,6 +75,48 @@ def test_default_allowlist_is_cameras_and_doorbells(fake_sdk):
     )
     # plugin1 is type API (plumbing, never offered in the selector)
     assert not device_matches(client, "plugin1", "Online")
+
+
+def add_smart_sensor(fake_sdk):
+    """Add an object detection plugin Smart Motion Sensor (type Sensor)."""
+    fake_sdk.systemManager.systemState["smart1"] = state(
+        name="Front Smart Motion Sensor",
+        type="Sensor",
+        info={},
+        pluginId="@scrypted/objectdetector",
+        interfaces=["Camera", "MotionSensor", "Settings", "Readme"],
+        motionDetected=False,
+    )
+
+
+def test_smart_sensors_bypass_the_type_allowlist(fake_sdk):
+    """Smart sensors exist only in scrypted, so they are exposed whatever types are selected."""
+    add_smart_sensor(fake_sdk)
+    assert device_matches(make_client(fake_sdk), "smart1", "MotionSensor")
+    assert device_matches(make_client(fake_sdk, []), "smart1", "MotionSensor")
+
+
+def test_object_detector_plumbing_stays_hidden(fake_sdk):
+    """The plugin's own Internal devices (frame generators etc.) are not smart sensors."""
+    fake_sdk.systemManager.systemState["ffmpeg1"] = state(
+        name="FFmpeg Frame Generator",
+        type="Internal",
+        info={},
+        pluginId="@scrypted/objectdetector",
+        interfaces=["VideoFrameGenerator"],
+    )
+    assert not device_matches(make_client(fake_sdk), "ffmpeg1", "VideoFrameGenerator")
+
+
+async def test_smart_motion_sensor_gets_a_motion_entity(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """With default options a Smart Motion Sensor becomes a motion binary sensor."""
+    add_smart_sensor(fake_sdk)
+    await setup_entry(hass, device_types=DEFAULT_DEVICE_TYPES)
+    state_ = hass.states.get("binary_sensor.front_smart_motion_sensor_motion")
+    assert state_ is not None
+    assert state_.state == "off"
 
 
 def test_entity_handles_missing_device_and_values(fake_sdk):
