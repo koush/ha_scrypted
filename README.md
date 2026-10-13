@@ -15,7 +15,12 @@ When *Create entities for Scrypted devices* is enabled (default), the
 integration connects to the Scrypted server over its engine.io RPC API and
 creates entities for discovered devices. By default only **Camera** and
 **Doorbell** device types are mirrored; pick additional Scrypted device types
-in the integration options.
+in the integration options. Smart Motion and Smart Occupancy Sensors created
+by Scrypted's object detection plugin are always mirrored. They trigger only
+on the object classes you choose (e.g. people, not swaying trees), which makes
+them a good fit for automations. Other `Sensor` devices are left out by default
+because they are often bridged from integrations Home Assistant already has
+(Ring, UniFi Protect, MQTT).
 
 - **Camera** — snapshots for `VideoCamera` devices. Live streaming is
   only supported using the Scrypted NVR cards.
