@@ -32,6 +32,22 @@ async def test_camera_snapshot(hass, fake_sdk, enable_custom_integrations):
     fake_sdk.systemManager.getDeviceById("cam1").takePicture.assert_awaited()
 
 
+async def test_camera_snapshot_sized(hass, fake_sdk, enable_custom_integrations):
+    """A sized request is resized by scrypted along a single axis.
+
+    scrypted stretches to fit when given both width and height, so the hint
+    must carry exactly one requested dimension to keep the aspect ratio.
+    """
+    await setup_entry(hass)
+    take_picture = fake_sdk.systemManager.getDeviceById("cam1").takePicture
+
+    await async_get_image(hass, "camera.porch_front_door_cam", width=640, height=360)
+    assert take_picture.await_args.args[0] == {"picture": {"width": 640}}
+
+    await async_get_image(hass, "camera.porch_front_door_cam", height=360)
+    assert take_picture.await_args.args[0] == {"picture": {"height": 360}}
+
+
 async def test_camera_has_no_stream_support(hass, fake_sdk, enable_custom_integrations):
     """Live streaming is intentionally unsupported; NVR cards handle live view."""
     await setup_entry(hass)
@@ -108,7 +124,11 @@ async def test_snapshot_service_requests_a_fresh_frame(
 async def test_thumbnail_keeps_cache_friendly_request(
     hass, fake_sdk, enable_custom_integrations
 ):
-    """A request with dimensions is a thumbnail refresh, where a recent image is fine."""
+    """A request with dimensions is a thumbnail refresh, where a recent image is fine.
+
+    It carries only a size hint (no event reason), so scrypted may still share
+    or reuse a recent capture.
+    """
     await setup_entry(hass)
 
     image = await async_get_image(
@@ -116,7 +136,9 @@ async def test_thumbnail_keeps_cache_friendly_request(
     )
 
     assert image.content == b"fake-jpeg"
-    fake_sdk.systemManager.getDeviceById("cam1").takePicture.assert_awaited_once_with()
+    fake_sdk.systemManager.getDeviceById("cam1").takePicture.assert_awaited_once_with(
+        {"picture": {"width": 320}}
+    )
 
 
 def test_fresh_picture_timeout_finishes_before_home_assistant_gives_up():

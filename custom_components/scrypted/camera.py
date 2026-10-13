@@ -50,6 +50,24 @@ async def async_setup_entry(
     )
 
 
+def _picture_size_hint(width: int | None, height: int | None) -> dict[str, int] | None:
+    """Return the takePicture size hint for an HA image request.
+
+    Returns None when HA asked for no size (a full-resolution capture).
+    HA passes width/height as a best-effort minimum and downscales whatever
+    comes back while preserving aspect ratio. scrypted stretches the image to
+    fit when given both dimensions, so the hint must name at most one.
+    """
+    # Width is what dashboard cards size by. Low-resolution cameras can come
+    # back slightly larger than native after re-encoding; skipping the hint
+    # would need the native size, which only an unsized snapshot reveals.
+    if width is not None:
+        return {"width": width}
+    if height is not None:
+        return {"height": height}
+    return None
+
+
 class ScryptedCamera(ScryptedDeviceEntity, Camera):
     """A scrypted VideoCamera device, exposed snapshot-only."""
 
@@ -95,7 +113,9 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
         requests made within a few seconds and quietly returns a cached image
         when a fresh one is slow, so the frame can be several seconds old.
         That is right for thumbnail refreshes, which is how Home Assistant asks
-        when it passes dimensions. A request without dimensions, such as the
+        when it passes dimensions; those also carry a size hint so scrypted
+        returns a thumbnail rather than the full frame. A request without
+        dimensions, such as the
         camera.snapshot service, wants the frame as of now, so it asks for an
         event capture: never shared, never served from cache.
         """
@@ -104,12 +124,16 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
             return None
         try:
             if ScryptedInterface.Camera.value in (device.interfaces or []):
-                if width is None and height is None:
+                hint = _picture_size_hint(width, height)
+                if hint is None:
                     media_object = await device.takePicture(
                         {"reason": "event", "timeout": FRESH_PICTURE_TIMEOUT_MS}
                     )
                 else:
-                    media_object = await device.takePicture()
+                    # Resizing in scrypted also re-encodes, which drops the
+                    # malformed COM segments some camera firmware (Dahua/Amcrest)
+                    # writes; HA's turbojpeg downscale logs those as corrupt.
+                    media_object = await device.takePicture({"picture": hint})
             else:
                 media_object = await device.getVideoStream()
             buffer = await self.client.sdk.mediaManager.convertMediaObjectToBuffer(
