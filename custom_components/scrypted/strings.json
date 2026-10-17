@@ -55,7 +55,7 @@
           "device_types": "Scrypted device types to create entities for"
         },
         "data_description": {
-          "device_types": "Smart Motion and Smart Occupancy Sensors from Scrypted's object detection plugin are always included. Other Sensor devices are often bridged from integrations Home Assistant already has, such as Ring, UniFi Protect or MQTT."
+          "device_types": "Smart Motion and Smart Occupancy Sensors from Scrypted's object detection plugin are always included. Other Sensor devices are often bridged from integrations Home Assistant already has, such as Ring, UniFi Protect or MQTT. Selecting Notifier adds a switch that mutes each Scrypted app's notifications; anyone with Home Assistant access can then mute any household member's phone."
         }
       }
     }

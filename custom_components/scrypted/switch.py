@@ -13,6 +13,7 @@ from homeassistant.components.switch import (
     SwitchEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -48,6 +49,16 @@ SWITCH_DESCRIPTIONS: dict[str, ScryptedSwitchDescription] = {
         interface=ScryptedInterface.OnOff.value,
         state_property="on",
     ),
+    # Scrypted NVR app notifiers (one per user per phone/Mac) turn on and off
+    # to mute that app's push notifications.
+    "Notifier": ScryptedSwitchDescription(
+        key="notifications",
+        name="Notifications",
+        icon="mdi:bell",
+        entity_category=EntityCategory.CONFIG,
+        interface=ScryptedInterface.OnOff.value,
+        state_property="on",
+    ),
 }
 
 
@@ -76,7 +87,7 @@ async def async_setup_entry(
 
 
 class ScryptedSwitch(ScryptedDeviceEntity, SwitchEntity):
-    """OnOff control for scrypted Switch/Outlet devices."""
+    """OnOff control for scrypted Switch/Outlet devices and app notifiers."""
 
     entity_description: ScryptedSwitchDescription
 
