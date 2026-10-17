@@ -22,6 +22,12 @@ them a good fit for automations. Other `Sensor` devices are left out by default
 because they are often bridged from integrations Home Assistant already has
 (Ring, UniFi Protect, MQTT).
 
+To combine broad device types with specific sources, exclude plugins in the
+options: devices from an excluded plugin never get entities, whatever their
+type. For example, select **Sensor** but exclude the Ring plugin if Home
+Assistant's Ring integration already covers those sensors. Excluding the
+object detection plugin also hides its smart sensors.
+
 - **Camera** — snapshots for `VideoCamera` devices. Live streaming is
   only supported using the Scrypted NVR cards.
 - **Binary sensor** — motion, doorbell button, sound, occupancy, flood, entry,

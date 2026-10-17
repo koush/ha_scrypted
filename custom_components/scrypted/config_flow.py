@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from scrypted_sdk import ScryptedDeviceType
+from scrypted_sdk import ScryptedDeviceType, ScryptedInterface
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -18,6 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     IconSelector,
     IconSelectorConfig,
+    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -31,10 +32,12 @@ from .const import (
     CONF_AUTO_REGISTER_RESOURCES,
     CONF_DEVICE_TYPES,
     CONF_ENABLE_ENTITIES,
+    CONF_EXCLUDED_PLUGINS,
     CONF_SCRYPTED_NVR,
     DEFAULT_DEVICE_TYPES,
     DOMAIN,
     EXCLUDED_DEVICE_TYPES,
+    HA_PLUGIN_ID,
 )
 from .http import retrieve_token
 
@@ -45,6 +48,48 @@ DEVICE_TYPE_OPTIONS = sorted(
     for device_type in ScryptedDeviceType
     if device_type.value not in EXCLUDED_DEVICE_TYPES
 )
+
+
+def _plugin_options(
+    entry: config_entries.ConfigEntry, selected: list[str]
+) -> list[SelectOptionDict]:
+    """Return the choices for the plugin exclusion option.
+
+    Live plugins that own at least one device of a type the options offer,
+    labelled with their plugin device's name, plus every already-selected
+    plugin so a saved choice stays visible when the server no longer reports
+    it or is disconnected.
+    """
+    labels = {plugin_id: plugin_id for plugin_id in selected}
+    runtime_data = getattr(entry, "runtime_data", None)
+    client = runtime_data.client if runtime_data else None
+    if client is not None and client.sdk is not None:
+        system_manager = client.sdk.systemManager
+        devices = [
+            device
+            for device_id in system_manager.getSystemState()
+            if (device := system_manager.getDeviceById(device_id)) is not None
+        ]
+        names = {
+            device.pluginId: device.name
+            for device in devices
+            if ScryptedInterface.ScryptedPlugin.value in (device.interfaces or [])
+        }
+        for device in devices:
+            plugin_id = device.pluginId
+            if (
+                not plugin_id
+                # always excluded, so never offered
+                or plugin_id == HA_PLUGIN_ID
+                or device.type not in DEVICE_TYPE_OPTIONS
+            ):
+                continue
+            name = names.get(plugin_id)
+            labels[plugin_id] = f"{name} ({plugin_id})" if name else plugin_id
+    return [
+        SelectOptionDict(value=plugin_id, label=label)
+        for plugin_id, label in sorted(labels.items(), key=lambda item: item[1].lower())
+    ]
 
 
 def text_selector(selector_type: TextSelectorType) -> TextSelector:
@@ -259,6 +304,7 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_SCRYPTED_NVR: user_input[CONF_SCRYPTED_NVR],
                 CONF_ENABLE_ENTITIES: user_input[CONF_ENABLE_ENTITIES],
                 CONF_DEVICE_TYPES: user_input[CONF_DEVICE_TYPES],
+                CONF_EXCLUDED_PLUGINS: user_input[CONF_EXCLUDED_PLUGINS],
             }
             return self.async_create_entry(data=data)
 
@@ -276,6 +322,7 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
         current_types = self.config_entry.options.get(
             CONF_DEVICE_TYPES, DEFAULT_DEVICE_TYPES
         )
+        current_plugins = self.config_entry.options.get(CONF_EXCLUDED_PLUGINS, [])
 
         return self.async_show_form(
             step_id="general",
@@ -292,6 +339,16 @@ class ScryptedOptionsFlowHandler(config_entries.OptionsFlow):
                         SelectSelectorConfig(
                             options=DEVICE_TYPE_OPTIONS,
                             multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_EXCLUDED_PLUGINS, default=current_plugins
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=_plugin_options(self.config_entry, current_plugins),
+                            multiple=True,
+                            custom_value=True,
                             mode=SelectSelectorMode.DROPDOWN,
                         )
                     ),

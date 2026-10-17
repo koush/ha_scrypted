@@ -38,11 +38,13 @@ MOTION_DESCRIPTION = MotionDescription(
 )
 
 
-def make_client(fake_sdk, device_types=None):
+def make_client(fake_sdk, device_types=None, excluded_plugins=None):
     """Build a minimal client stand-in exposing the fake SDK and options."""
     options = {}
     if device_types is not None:
         options["device_types"] = device_types
+    if excluded_plugins is not None:
+        options["excluded_plugins"] = excluded_plugins
     return SimpleNamespace(sdk=fake_sdk, entry=SimpleNamespace(options=options))
 
 
@@ -117,6 +119,36 @@ async def test_smart_motion_sensor_gets_a_motion_entity(
     state_ = hass.states.get("binary_sensor.front_smart_motion_sensor_motion")
     assert state_ is not None
     assert state_.state == "off"
+
+
+def test_excluded_plugins_hide_their_devices(fake_sdk):
+    """An excluded plugin's devices are hidden even when their type is selected."""
+    for device_id, plugin_id in (
+        ("ring1", "@scrypted/ring"),
+        ("unifi1", "@scrypted/unifi-protect"),
+    ):
+        fake_sdk.systemManager.systemState[device_id] = state(
+            name=device_id,
+            type="Sensor",
+            info={},
+            pluginId=plugin_id,
+            interfaces=["FloodSensor"],
+            flooded=False,
+        )
+    client = make_client(
+        fake_sdk,
+        device_types=["Camera", "Doorbell", "Sensor"],
+        excluded_plugins=["@scrypted/ring"],
+    )
+    assert not device_matches(client, "ring1", "FloodSensor")
+    assert device_matches(client, "unifi1", "FloodSensor")
+
+
+def test_excluding_object_detector_opts_out_of_smart_sensors(fake_sdk):
+    """Plugin exclusion wins over the smart sensor exception."""
+    add_smart_sensor(fake_sdk)
+    client = make_client(fake_sdk, excluded_plugins=["@scrypted/objectdetector"])
+    assert not device_matches(client, "smart1", "MotionSensor")
 
 
 def test_entity_handles_missing_device_and_values(fake_sdk):

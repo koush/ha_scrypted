@@ -36,6 +36,11 @@ EXCLUDED_DEVICE_TYPES = {
 CONF_DEVICE_TYPES = "device_types"
 DEFAULT_DEVICE_TYPES = ["Camera", "Doorbell"]
 
+# Plugin exclusion option: scrypted plugin ids whose devices never produce
+# entities, e.g. plugins bridging devices Home Assistant already integrates.
+# Wins over both the type allowlist and the smart sensor exception.
+CONF_EXCLUDED_PLUGINS = "excluded_plugins"
+
 # scrypted plugin that imports HA entities into scrypted; mirroring those
 # back would duplicate entities and loop commands through two hops.
 HA_PLUGIN_ID = "@scrypted/homeassistant"
