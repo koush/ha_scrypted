@@ -52,10 +52,12 @@
           "auto_register_resources": "Automatically register Scrypted NVR Lovelace resources",
           "scrypted_nvr": "Replace Scrypted Management Console sidebar with Scrypted NVR sidebar. Requires Scrypted NVR.",
           "enable_entities": "Create entities for Scrypted devices",
-          "device_types": "Scrypted device types to create entities for"
+          "device_types": "Scrypted device types to create entities for",
+          "excluded_plugins": "Scrypted plugins to exclude"
         },
         "data_description": {
-          "device_types": "Smart Motion and Smart Occupancy Sensors from Scrypted's object detection plugin are always included. Other Sensor devices are often bridged from integrations Home Assistant already has, such as Ring, UniFi Protect or MQTT. Selecting Notifier adds a switch that mutes each Scrypted app's notifications; anyone with Home Assistant access can then mute any household member's phone."
+          "device_types": "Smart Motion and Smart Occupancy Sensors from Scrypted's object detection plugin are always included. Other Sensor devices are often bridged from integrations Home Assistant already has, such as Ring, UniFi Protect or MQTT. Selecting Notifier adds a switch that mutes each Scrypted app's notifications; anyone with Home Assistant access can then mute any household member's phone.",
+          "excluded_plugins": "Devices from these plugins never get entities, whatever their type. Use it for plugins that bridge devices Home Assistant already integrates. Excluding the object detection plugin also hides its smart sensors."
         }
       }
     }

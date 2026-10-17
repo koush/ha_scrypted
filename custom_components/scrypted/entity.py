@@ -19,6 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_DEVICE_TYPES,
+    CONF_EXCLUDED_PLUGINS,
     DEFAULT_DEVICE_TYPES,
     DOMAIN,
     HA_PLUGIN_ID,
@@ -52,9 +53,10 @@ def exposed_device(client: ScryptedClient | None, device_id: str) -> Any:
     """Return the DeviceProxy when this device should produce entities.
 
     A device is exposed when the connection is live, scrypted still knows the
-    device, it is not one Home Assistant itself exported to scrypted, and its
-    type is in the configured allowlist (default: cameras and doorbells) or it
-    is an object detection plugin smart sensor.
+    device, it is not one Home Assistant itself exported to scrypted, its
+    plugin is not excluded in the options, and its type is in the configured
+    allowlist (default: cameras and doorbells) or it is an object detection
+    plugin smart sensor.
     Returns None otherwise, so callers never touch a dropped SDK.
     """
     if client is None or client.sdk is None:
@@ -63,6 +65,8 @@ def exposed_device(client: ScryptedClient | None, device_id: str) -> Any:
     if device is None:
         return None
     if device.pluginId == HA_PLUGIN_ID:
+        return None
+    if device.pluginId in client.entry.options.get(CONF_EXCLUDED_PLUGINS, ()):
         return None
     if device.pluginId == SMART_SENSOR_PLUGIN_ID and device.type == SMART_SENSOR_TYPE:
         return device

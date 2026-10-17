@@ -18,9 +18,11 @@ from custom_components.scrypted import config_flow
 from custom_components.scrypted.const import (
     CONF_AUTO_REGISTER_RESOURCES,
     CONF_ENABLE_ENTITIES,
+    CONF_EXCLUDED_PLUGINS,
     CONF_SCRYPTED_NVR,
     DOMAIN,
 )
+from tests.conftest import setup_entry, state
 from tests.const import EXAMPLE_HOST, PASSWORD, USERNAME
 
 CREDENTIALS_INPUT = {
@@ -227,11 +229,12 @@ async def test_options_flow_respects_existing_options(hass):
     entry.add_to_hass(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
     schema_keys = list(result["data_schema"].schema.keys())
-    auto_field, nvr_field, entities_field, types_field = schema_keys
+    auto_field, nvr_field, entities_field, types_field, plugins_field = schema_keys
     assert auto_field.default() is False
     assert nvr_field.default() is False
     assert entities_field.default() is True
     assert types_field.default() == ["Camera", "Doorbell"]
+    assert plugins_field.default() == []
 
 
 async def test_options_flow_init_shows_general_step(hass):
@@ -388,3 +391,95 @@ async def test_upgrade_step_applies_its_own_fields_and_keeps_the_rest(hass):
     # Untouched by this form.
     assert entry.options[CONF_ENABLE_ENTITIES] is False
     assert entry.options["device_types"] == ["Camera", "Doorbell", "Sensor"]
+
+
+def _excluded_plugins_field(result):
+    """Return (schema key, selector) for the excluded plugins option."""
+    for key, selector in result["data_schema"].schema.items():
+        if key == CONF_EXCLUDED_PLUGINS:
+            return key, selector
+    raise AssertionError("excluded_plugins field missing")
+
+
+async def test_options_flow_lists_plugins_from_live_server(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """The plugin choices are live plugins that own user-facing devices."""
+    devices = {
+        # Owns a user-facing device: offered, labelled by its plugin device.
+        "ring_plugin": state(
+            name="Ring Plugin",
+            type="API",
+            info={},
+            pluginId="@scrypted/ring",
+            interfaces=["ScryptedPlugin"],
+        ),
+        "ring1": state(
+            name="Hall Leak",
+            type="Sensor",
+            info={},
+            pluginId="@scrypted/ring",
+            interfaces=["FloodSensor"],
+        ),
+        # Owns only a type the options never offer: not offered.
+        "llm_tools": state(
+            name="Web Tools",
+            type="LLMTools",
+            info={},
+            pluginId="@scrypted/llm",
+            interfaces=["LLMTools"],
+        ),
+        # Owns only plumbing: not offered.
+        "webrtc_plugin": state(
+            name="WebRTC Plugin",
+            type="API",
+            info={},
+            pluginId="@scrypted/webrtc",
+            interfaces=["ScryptedPlugin"],
+        ),
+    }
+    fake_sdk.systemManager.systemState.update(devices)
+    entry = await setup_entry(hass)
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, CONF_EXCLUDED_PLUGINS: ["@scrypted/gone"]}
+    )
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    key, selector = _excluded_plugins_field(result)
+    assert key.default() == ["@scrypted/gone"]
+    # @scrypted/homeassistant (haimport1) is always excluded, so never offered;
+    # a saved plugin the server no longer has stays selectable.
+    assert selector.config["options"] == [
+        {"value": "@scrypted/gone", "label": "@scrypted/gone"},
+        {"value": "@scrypted/ring", "label": "Ring Plugin (@scrypted/ring)"},
+    ]
+    assert selector.config["custom_value"] is True
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_AUTO_REGISTER_RESOURCES: False,
+            CONF_SCRYPTED_NVR: False,
+            CONF_ENABLE_ENTITIES: True,
+            "device_types": ["Camera", "Doorbell", "Sensor"],
+            CONF_EXCLUDED_PLUGINS: ["@scrypted/ring"],
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_EXCLUDED_PLUGINS] == ["@scrypted/ring"]
+
+
+async def test_options_flow_plugins_without_connection(hass):
+    """Without a live connection the saved plugins remain selectable."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        options={CONF_EXCLUDED_PLUGINS: ["@scrypted/ring"]},
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    key, selector = _excluded_plugins_field(result)
+    assert key.default() == ["@scrypted/ring"]
+    assert selector.config["options"] == [
+        {"value": "@scrypted/ring", "label": "@scrypted/ring"}
+    ]
