@@ -7,7 +7,7 @@ cards.
 ![Scrypted Dashboard](https://github.com/koush/ha_scrypted/assets/73924/b76b239a-a61a-451a-84aa-1d3621594a68)
 
 Visit the [Scrypted Documentation](https://docs.scrypted.app/home-assistant.html)
-for setup instructions.
+for setup instructions. Requires Home Assistant 2026.7 or newer.
 
 ## Device entities
 

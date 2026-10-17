@@ -48,7 +48,8 @@ async def retrieve_token(data: dict[str, Any], session: aiohttp.ClientSession) -
 
     resp = await session.get(
         f"https://{ip}:{port}/login",
-        headers={"authorization": aiohttp.BasicAuth(username, password).encode()},
+        # UTF-8, which is how scrypted decodes Basic credentials.
+        headers={"authorization": aiohttp.encode_basic_auth(username, password)},
         json={"username": username},
         raise_for_status=True,
         verify_ssl=False,

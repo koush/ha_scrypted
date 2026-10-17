@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -93,6 +94,26 @@ async def test_retrieve_token_builds_request(
     assert called_url == expected_url
     headers = mock_session.get.call_args.kwargs["headers"]
     assert headers["authorization"].startswith("Basic ")
+
+
+async def test_retrieve_token_encodes_credentials_as_utf8(login_success_fixture):
+    """Credentials are sent UTF-8 encoded, which is how scrypted decodes them.
+
+    aiohttp's deprecated BasicAuth defaulted to latin-1, so a non-ASCII password
+    reached scrypted garbled and the login failed.
+    """
+    mock_response = AsyncMock()
+    mock_response.json = AsyncMock(return_value=login_success_fixture)
+    mock_session = MagicMock(spec=aiohttp.ClientSession)
+    mock_session.get = AsyncMock(return_value=mock_response)
+
+    await http.retrieve_token(
+        {CONF_HOST: HOST_WITH_PORT, CONF_USERNAME: "user", CONF_PASSWORD: "pässwörd"},
+        mock_session,
+    )
+
+    expected = "Basic " + base64.b64encode("user:pässwörd".encode()).decode()
+    assert mock_session.get.call_args.kwargs["headers"]["authorization"] == expected
 
 
 async def test_retrieve_token_no_token_in_response(login_error_not_logged_in_fixture):
