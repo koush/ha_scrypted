@@ -42,10 +42,10 @@ async def test_camera_snapshot_sized(hass, fake_sdk, enable_custom_integrations)
     take_picture = fake_sdk.systemManager.getDeviceById("cam1").takePicture
 
     await async_get_image(hass, "camera.porch_front_door_cam", width=640, height=360)
-    assert take_picture.await_args.args[0] == {"picture": {"width": 640}}
+    assert take_picture.await_args.args[0]["picture"] == {"width": 640}
 
     await async_get_image(hass, "camera.porch_front_door_cam", height=360)
-    assert take_picture.await_args.args[0] == {"picture": {"height": 360}}
+    assert take_picture.await_args.args[0]["picture"] == {"height": 360}
 
 
 async def test_camera_has_no_stream_support(hass, fake_sdk, enable_custom_integrations):
@@ -126,8 +126,9 @@ async def test_thumbnail_keeps_cache_friendly_request(
 ):
     """A request with dimensions is a thumbnail refresh, where a recent image is fine.
 
-    It carries only a size hint (no event reason), so scrypted may still share
-    or reuse a recent capture.
+    It is flagged periodic, so scrypted's snapshot plugin returns a recent
+    cached capture after a short wait rather than holding the request until
+    Home Assistant's own image timeout.
     """
     await setup_entry(hass)
 
@@ -137,7 +138,7 @@ async def test_thumbnail_keeps_cache_friendly_request(
 
     assert image.content == b"fake-jpeg"
     fake_sdk.systemManager.getDeviceById("cam1").takePicture.assert_awaited_once_with(
-        {"picture": {"width": 320}}
+        {"picture": {"width": 320}, "reason": "periodic", "periodicRequest": True}
     )
 
 

@@ -109,15 +109,14 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
     ) -> bytes | None:
         """Snapshot via Camera.takePicture, falling back to the video stream.
 
-        Without a reason, scrypted's snapshot plugin shares a capture across
-        requests made within a few seconds and quietly returns a cached image
-        when a fresh one is slow, so the frame can be several seconds old.
-        That is right for thumbnail refreshes, which is how Home Assistant asks
-        when it passes dimensions; those also carry a size hint so scrypted
-        returns a thumbnail rather than the full frame. A request without
-        dimensions, such as the
-        camera.snapshot service, wants the frame as of now, so it asks for an
-        event capture: never shared, never served from cache.
+        Home Assistant passes dimensions for thumbnail refreshes, where a
+        recent image is fine. Those are flagged periodic: scrypted's snapshot
+        plugin then accepts a capture up to 20s old and waits at most 3s for a
+        fresh one, instead of up to 10s, which would race Home Assistant's own
+        image timeout. They also carry a size hint so scrypted returns a
+        thumbnail rather than the full frame. A request without dimensions,
+        such as the camera.snapshot service, wants the frame as of now, so it
+        asks for an event capture: never shared, never served from cache.
         """
         device = self.device
         if device is None or not self.client.sdk:
@@ -133,7 +132,9 @@ class ScryptedCamera(ScryptedDeviceEntity, Camera):
                     # Resizing in scrypted also re-encodes, which drops the
                     # malformed COM segments some camera firmware (Dahua/Amcrest)
                     # writes; HA's turbojpeg downscale logs those as corrupt.
-                    media_object = await device.takePicture({"picture": hint})
+                    media_object = await device.takePicture(
+                        {"picture": hint, "reason": "periodic", "periodicRequest": True}
+                    )
             else:
                 media_object = await device.getVideoStream()
             buffer = await self.client.sdk.mediaManager.convertMediaObjectToBuffer(
