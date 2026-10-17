@@ -36,6 +36,10 @@ because they are often bridged from integrations Home Assistant already has
 - **Switch, lock, cover, light, fan, vacuum, climate** — controllable
   Scrypted devices of those types, once their device type is enabled in the
   options.
+- **Notification switches** — enable the **Notifier** device type to get a
+  switch per Scrypted NVR app (one per user per phone or Mac) that mutes its
+  push notifications. Off by default: anyone with Home Assistant access could
+  then mute any household member's notifications.
 
 Scrypted NVR detection clips are also available in the Home Assistant media
 browser (camera → day → clip) and play through HA's stream component.

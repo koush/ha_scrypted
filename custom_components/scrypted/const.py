@@ -28,7 +28,6 @@ EXCLUDED_DEVICE_TYPES = {
     "Internet",
     "LLM",
     "Network",
-    "Notifier",
     "Program",
     "Scene",
 }
