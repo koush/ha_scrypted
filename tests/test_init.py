@@ -25,7 +25,7 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from custom_components import scrypted
 from custom_components.scrypted.const import (
@@ -742,6 +742,63 @@ async def test_remove_config_entry_device_entities_disabled(
         },
     )
     assert await scrypted.async_remove_config_entry_device(hass, entry, device_entry)
+
+
+async def test_reload_prunes_devices_the_options_now_hide(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """Narrowing the options removes devices scrypted still reports."""
+    entry = await setup_entry(hass)  # Camera, Doorbell, Sensor
+    device_registry = dr.async_get(hass)
+    entity_registry = er.async_get(hass)
+    leak_identifier = (DOMAIN, f"{entry.entry_id}_leak1")
+    leak = device_registry.async_get_device_by_identifier(
+        leak_identifier, entry.entry_id
+    )
+    assert leak
+    leak_entity_ids = [
+        e.entity_id for e in er.async_entries_for_device(entity_registry, leak.id)
+    ]
+    assert leak_entity_ids
+
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, "device_types": ["Camera", "Doorbell"]}
+    )
+    await hass.async_block_till_done()
+
+    assert (
+        device_registry.async_get_device_by_identifier(leak_identifier, entry.entry_id)
+        is None
+    )
+    assert not [e for e in leak_entity_ids if entity_registry.async_get(e)]
+    # still-exposed devices and the hub survive
+    assert device_registry.async_get_device_by_identifier(
+        (DOMAIN, f"{entry.entry_id}_cam1"), entry.entry_id
+    )
+    assert device_registry.async_get_device_by_identifier(
+        (DOMAIN, entry.entry_id), entry.entry_id
+    )
+
+
+async def test_reload_keeps_devices_scrypted_no_longer_reports(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """A device scrypted forgot is left for manual removal, not pruned."""
+    entry = await setup_entry(hass)
+    device_registry = dr.async_get(hass)
+    ghost = device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={
+            ("other_domain", "irrelevant"),
+            (DOMAIN, "other_entry_device"),
+            (DOMAIN, f"{entry.entry_id}_ghost"),
+        },
+    )
+
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert device_registry.async_get(ghost.id) is not None
 
 
 async def test_failed_connect_does_not_publish_token(hass, mock_forward_entry_setups):

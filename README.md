@@ -28,6 +28,12 @@ type. For example, select **Sensor** but exclude the Ring plugin if Home
 Assistant's Ring integration already covers those sensors. Excluding the
 object detection plugin also hides its smart sensors.
 
+Narrowing the options (unselecting a device type or excluding a plugin)
+removes the devices they now hide, along with their entities, when the
+integration reloads. Devices that Scrypted itself no longer reports are kept,
+since they may only be missing briefly; delete those from the device page once
+you're sure they're gone.
+
 - **Camera** — snapshots for `VideoCamera` devices. Live streaming is
   only supported using the Scrypted NVR cards.
 - **Binary sensor** — motion, doorbell button, sound, occupancy, flood, entry,
