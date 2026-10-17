@@ -319,6 +319,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             configuration_url=get_base_url(config_entry.data[CONF_HOST]),
         )
         hub_device_id = hub_device.id
+        _async_prune_hidden_devices(hass, config_entry, client)
 
     # Published only once setup can no longer fail: the proxy view and the
     # token sensor resolve entries through this mapping, and a failed setup
@@ -363,6 +364,37 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     # Set up token sensor
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
     return True
+
+
+@callback
+def _async_prune_hidden_devices(
+    hass: HomeAssistant, config_entry: ConfigEntry, client: ScryptedClient
+) -> None:
+    """Remove devices scrypted still reports but the options now hide.
+
+    Narrowing the device types or excluding a plugin would otherwise leave the
+    entities already created for those devices behind as unavailable until
+    deleted by hand. Runs only after a successful connect, so a dropped
+    connection never removes anything. Devices scrypted no longer reports are
+    left alone; removing those stays a manual choice in the UI (see
+    async_remove_config_entry_device).
+    """
+    assert client.sdk is not None  # only called right after a connect
+    device_registry = dr.async_get(hass)
+    prefix = f"{config_entry.entry_id}_"
+    for device_entry in dr.async_entries_for_config_entry(
+        device_registry, config_entry.entry_id
+    ):
+        for domain, identifier in device_entry.identifiers:
+            if domain != DOMAIN or not identifier.startswith(prefix):
+                continue
+            device_id = identifier.removeprefix(prefix)
+            if (
+                client.sdk.systemManager.getDeviceById(device_id) is not None
+                and exposed_device(client, device_id) is None
+            ):
+                device_registry.async_remove_device(device_entry.id)
+            break
 
 
 async def async_remove_config_entry_device(
