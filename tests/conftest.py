@@ -380,6 +380,7 @@ class FakeDevice:
             "getObjectTypes",
             AsyncMock(return_value={"classes": ["person", "car"]}),
         )
+        object.__setattr__(self, "reboot", AsyncMock())
         object.__setattr__(self, "startIntercom", AsyncMock())
         object.__setattr__(self, "stopIntercom", AsyncMock())
         for command in (
@@ -540,6 +541,7 @@ DEFAULT_SYSTEM_STATE = {
             "Online",
             "VideoRecorder",
             "VideoClips",
+            "Reboot",
         ],
         motionDetected=False,
         batteryLevel=80,
