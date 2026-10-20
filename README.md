@@ -48,6 +48,8 @@ you're sure they're gone.
   reported classes) and doorbell presses, usable as automation triggers.
 - **Sensor** — temperature, humidity, battery, illuminance, UV, CO2,
   PM2.5/PM10, VOC, NOx, air quality.
+- **Button** — *Restart* for devices that support rebooting, such as most
+  cameras. Created disabled; enable it from the device page.
 - **Media player** — intercom-capable devices (doorbells, two-way cameras)
   become speaker entities: point `media_player.play_media`, TTS, or announce
   at them to talk through the camera speaker.
