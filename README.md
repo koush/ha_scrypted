@@ -38,6 +38,12 @@ you're sure they're gone.
   only supported using the Scrypted NVR cards.
 - **Binary sensor** — motion, doorbell button, sound, occupancy, flood, entry,
   power, connectivity, tamper, charging, sleeping.
+- **Detected binary sensors** — one per object class a camera's detector
+  reports (*Person detected*, *Car detected*, …). Each turns on when the class
+  is detected and off after 60 seconds without another detection, like
+  Scrypted's Smart Motion Sensor but with no setup. They are created disabled,
+  since a detection model can report dozens of classes: enable the ones you
+  want from the camera's device page.
 - **Event** — object detection (`person`, `car`, … from the detector's
   reported classes) and doorbell presses, usable as automation triggers.
 - **Sensor** — temperature, humidity, battery, illuminance, UV, CO2,

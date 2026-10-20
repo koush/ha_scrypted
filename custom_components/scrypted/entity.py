@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 import inspect
+import logging
 from typing import Any
 
 from scrypted_sdk import ScryptedInterface
@@ -24,6 +25,7 @@ from .const import (
     DOMAIN,
     HA_PLUGIN_ID,
     SIGNAL_CONNECTION,
+    SIGNAL_DETECTIONS,
     SIGNAL_DEVICE_UPDATE,
     SIGNAL_NEW_DEVICE,
     SMART_SENSOR_PLUGIN_ID,
@@ -31,8 +33,15 @@ from .const import (
 )
 from .hub import ScryptedClient
 
+_LOGGER = logging.getLogger(__name__)
+
 # systemState property backing the Online interface.
 ONLINE_PROPERTY = "online"
+
+# scrypted reports motion as a detection class (its motion pipeline rides the
+# ObjectDetector interface); HA already exposes that signal via the motion
+# binary_sensor, so detection entities only handle classified objects.
+MOTION_CLASS = "motion"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -74,6 +83,21 @@ def exposed_device(client: ScryptedClient | None, device_id: str) -> Any:
     if (device.type or "Unknown") not in allowed_types:
         return None
     return device
+
+
+async def async_detection_classes(device) -> list[str]:
+    """Return the detection classes the device reports, minus scrypted's motion class.
+
+    The object detection plugin appends its model's classes to the camera's
+    own, so a class can be listed twice.
+    """
+    try:
+        object_types = await device.getObjectTypes()
+        classes = list((object_types or {}).get("classes") or [])
+    except Exception:  # noqa: BLE001 - some detectors don't implement this
+        _LOGGER.debug("getObjectTypes failed for %s", device.id, exc_info=True)
+        classes = []
+    return [name for name in dict.fromkeys(classes) if name != MOTION_CLASS]
 
 
 def device_matches(client: ScryptedClient, device_id: str, interface: str) -> bool:
@@ -213,6 +237,18 @@ class ScryptedDeviceEntity(Entity):
                 self._handle_connection_change,
             )
         )
+
+    @callback
+    def _async_listen_detections(self, handler: Callable[[dict], None]) -> None:
+        """Route the device's ObjectsDetected payloads to handler until removal."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                SIGNAL_DETECTIONS.format(self.entry.entry_id, self.device_id),
+                handler,
+            )
+        )
+        self.async_on_remove(self.client.async_subscribe_detections(self.device_id))
 
     @callback
     def _handle_device_update(self, event_details: dict, value: Any) -> None:

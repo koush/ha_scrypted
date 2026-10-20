@@ -3,7 +3,7 @@
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from custom_components.scrypted.const import SIGNAL_CONNECTION, SIGNAL_NEW_DEVICE
+from custom_components.scrypted.const import SIGNAL_NEW_DEVICE
 from tests.conftest import setup_entry
 
 
@@ -91,9 +91,9 @@ async def test_motion_only_detector_skips_entity(
 async def test_motion_class_excluded_from_event_types(
     hass, fake_sdk, enable_custom_integrations
 ):
-    """Motion class excluded from event types."""
+    """Motion is excluded and a class listed twice appears once."""
     fake_sdk.systemManager.getDeviceById("cam1").getObjectTypes.return_value = {
-        "classes": ["motion", "person", "car"]
+        "classes": ["motion", "person", "car", "person"]
     }
     await setup_entry(hass)
     state = hass.states.get("event.porch_front_door_cam_object_detected")
@@ -149,28 +149,6 @@ async def test_detection_without_class_ignored(
     assert state.state == "unknown"
 
 
-async def test_connection_signal_handling(hass, fake_sdk, enable_custom_integrations):
-    """Connection signal handling."""
-    entry = await setup_entry(hass)
-    client = entry.runtime_data.client
-    signal = SIGNAL_CONNECTION.format(entry.entry_id)
-
-    # connection lost: no re-register, state written
-    async_dispatcher_send(hass, signal, False)
-    await hass.async_block_till_done()
-
-    # reconnected: object detection listener re-registers
-    async_dispatcher_send(hass, signal, True)
-    await hass.async_block_till_done()
-    assert ("cam1", "ObjectDetector") in fake_sdk.systemManager.device_listeners
-
-    # reconnected while sdk unset: register is a guarded no-op
-    client.sdk = None
-    async_dispatcher_send(hass, signal, True)
-    await hass.async_block_till_done()
-    client.sdk = fake_sdk
-
-
 async def test_new_device_signal_unknown_id_ignored(
     hass, fake_sdk, enable_custom_integrations
 ):
@@ -218,22 +196,3 @@ async def test_multiple_classes_each_fire_an_event(
 
     assert fired == ["person", "car"]
     assert hass.states.get(entity_id).attributes["detection_id"] == "d1"
-
-
-async def test_reconnect_reregisters_without_touching_stale_register(
-    hass, fake_sdk, enable_custom_integrations
-):
-    """Reconnect re-registers a listener and drops the dead one untouched."""
-    entry = await setup_entry(hass)
-    manager = fake_sdk.systemManager
-    key = ("cam1", "ObjectDetector")
-    assert key in manager.device_listeners
-
-    # The transport died, so the server-side listener went with it and the old
-    # register object can no longer be used to remove anything.
-    manager.device_listeners.clear()
-
-    async_dispatcher_send(hass, SIGNAL_CONNECTION.format(entry.entry_id), True)
-    await hass.async_block_till_done()
-
-    assert key in manager.device_listeners

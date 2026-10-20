@@ -1,15 +1,26 @@
 """Tests for scrypted binary sensors."""
 
+from datetime import timedelta
 from types import SimpleNamespace
+from unittest.mock import patch
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from freezegun.api import FrozenDateTimeFactory
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
+from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from custom_components.scrypted import ScryptedRuntimeData
 from custom_components.scrypted.binary_sensor import (
     BINARY_SENSORS,
+    DETECTION_TIMEOUT,
     ScryptedBinarySensor,
+    ScryptedObjectDetectedSensor,
 )
 from custom_components.scrypted.const import (
     DOMAIN,
@@ -123,3 +134,107 @@ async def test_online_sensor_reports_off_when_device_offline(
         hass.states.get("binary_sensor.porch_front_door_cam_motion").state
         == "unavailable"
     )
+
+
+PERSON_DETECTED = "binary_sensor.porch_front_door_cam_person_detected"
+CAR_DETECTED = "binary_sensor.porch_front_door_cam_car_detected"
+
+
+def _detect(fake_sdk, *class_names: str) -> None:
+    fake_sdk.systemManager.fire_device_event(
+        "cam1",
+        "ObjectDetector",
+        {"detections": [{"className": name, "score": 0.9} for name in class_names]},
+    )
+
+
+async def _setup_with_detected_sensors_enabled(hass: HomeAssistant):
+    with patch.object(
+        ScryptedObjectDetectedSensor, "_attr_entity_registry_enabled_default", True
+    ):
+        return await setup_entry(hass)
+
+
+async def test_detected_sensors_created_disabled(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """Each advertised class gets a sensor, created disabled."""
+    await setup_entry(hass)
+    registry = er.async_get(hass)
+
+    for entity_id in (PERSON_DETECTED, CAR_DETECTED):
+        entity = registry.async_get(entity_id)
+        assert entity is not None
+        assert entity.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+        assert hass.states.get(entity_id) is None
+    # bell1 has no ObjectDetector interface
+    assert not [
+        entity_id
+        for entity_id in registry.entities
+        if entity_id.startswith("binary_sensor.doorbell_") and "detected" in entity_id
+    ]
+
+
+async def test_detected_sensor_turns_off_after_quiet_period(
+    hass, fake_sdk, enable_custom_integrations, freezer: FrozenDateTimeFactory
+):
+    """A sensor is on while its class keeps being detected, then clears."""
+    await _setup_with_detected_sensors_enabled(hass)
+    assert hass.states.get(PERSON_DETECTED).state == STATE_OFF
+
+    _detect(fake_sdk, "person", "motion")
+    await hass.async_block_till_done()
+    assert hass.states.get(PERSON_DETECTED).state == STATE_ON
+    assert hass.states.get(CAR_DETECTED).state == STATE_OFF
+    turned_on = hass.states.get(PERSON_DETECTED).last_updated
+
+    # Another detection restarts the timer without rewriting the state.
+    freezer.tick(timedelta(seconds=DETECTION_TIMEOUT - 10))
+    async_fire_time_changed(hass)
+    _detect(fake_sdk, "person")
+    await hass.async_block_till_done()
+    assert hass.states.get(PERSON_DETECTED).last_updated == turned_on
+
+    freezer.tick(timedelta(seconds=DETECTION_TIMEOUT - 10))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get(PERSON_DETECTED).state == STATE_ON
+
+    # Other classes do not keep it on.
+    _detect(fake_sdk, "car")
+    freezer.tick(timedelta(seconds=20))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get(PERSON_DETECTED).state == STATE_OFF
+    assert hass.states.get(CAR_DETECTED).state == STATE_ON
+
+
+async def test_detected_sensors_share_one_subscription(
+    hass, fake_sdk, enable_custom_integrations
+):
+    """The event entity and every detected sensor share one listenDevice."""
+    manager = fake_sdk.systemManager
+    with patch.object(manager, "listenDevice", wraps=manager.listenDevice) as listen:
+        await _setup_with_detected_sensors_enabled(hass)
+    assert [call.args[:2] for call in listen.call_args_list] == [
+        ("cam1", "ObjectDetector")
+    ]
+
+
+async def test_unload_cancels_pending_clear(
+    hass, fake_sdk, enable_custom_integrations, freezer: FrozenDateTimeFactory
+):
+    """Unloading while a sensor is on cancels its timer and the subscription."""
+    entry = await _setup_with_detected_sensors_enabled(hass)
+    _detect(fake_sdk, "person")
+    await hass.async_block_till_done()
+    assert hass.states.get(PERSON_DETECTED).state == STATE_ON
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert ("cam1", "ObjectDetector") not in fake_sdk.systemManager.device_listeners
+
+    freezer.tick(timedelta(seconds=DETECTION_TIMEOUT + 1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get(PERSON_DETECTED).state == STATE_UNAVAILABLE

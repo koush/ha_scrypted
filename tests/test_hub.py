@@ -11,6 +11,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from custom_components.scrypted import hub as hub_module
 from custom_components.scrypted.const import (
     DOMAIN,
+    SIGNAL_DETECTIONS,
     SIGNAL_DEVICE_UPDATE,
     SIGNAL_NEW_DEVICE,
 )
@@ -132,3 +133,69 @@ async def test_reconnect_survives_unexpected_error(hass, entry, fake_sdk):
         await client._reconnect_loop()
 
     assert len(attempts) == 2
+
+
+async def test_detection_subscription_is_shared(hass, entry, fake_sdk):
+    """Subscribers share one listenDevice, removed with the last release."""
+    client = ScryptedClient(hass, entry)
+    await client.async_connect()
+    manager = fake_sdk.systemManager
+    key = ("cam1", "ObjectDetector")
+
+    payloads = []
+    async_dispatcher_connect(
+        hass, SIGNAL_DETECTIONS.format(entry.entry_id, "cam1"), payloads.append
+    )
+    with patch.object(manager, "listenDevice", wraps=manager.listenDevice) as listen:
+        release_first = client.async_subscribe_detections("cam1")
+        release_second = client.async_subscribe_detections("cam1")
+    assert listen.call_count == 1
+
+    manager.fire_device_event("cam1", "ObjectDetector", {"detections": []})
+    manager.fire_device_event("cam1", "ObjectDetector", None)
+    await hass.async_block_till_done()
+    assert payloads == [{"detections": []}, {}]
+
+    release_first()
+    assert key in manager.device_listeners
+    release_second()
+    assert key not in manager.device_listeners
+    await client.async_disconnect()
+
+
+async def test_reconnect_renews_held_detection_subscriptions(
+    hass, entry, fake_sdk, mock_connect_sdk
+):
+    """A reconnect re-registers held subscriptions and drops the dead ones untouched."""
+    client = ScryptedClient(hass, entry)
+    await client.async_connect()
+    manager = fake_sdk.systemManager
+    key = ("cam1", "ObjectDetector")
+    release = client.async_subscribe_detections("cam1")
+    stale = client._detection_registers["cam1"]
+
+    with patch.object(hub_module, "RECONNECT_INITIAL_DELAY", 3600):
+        mock_connect_sdk.transport.handlers["disconnect"]()
+    # The server-side listener went with the transport.
+    manager.device_listeners.clear()
+
+    with patch.object(stale, "removeListener") as remove_stale:
+        await client.async_connect()
+    remove_stale.assert_not_called()
+    assert key in manager.device_listeners
+
+    release()
+    assert key not in manager.device_listeners
+    await client.async_disconnect()
+
+
+async def test_detection_subscription_waits_for_sdk(hass, entry, fake_sdk):
+    """Subscribing while disconnected registers once the client connects."""
+    client = ScryptedClient(hass, entry)
+    release = client.async_subscribe_detections("cam1")
+    assert fake_sdk.systemManager.device_listeners == {}
+
+    await client.async_connect()
+    assert ("cam1", "ObjectDetector") in fake_sdk.systemManager.device_listeners
+    release()
+    await client.async_disconnect()

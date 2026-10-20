@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from scrypted_sdk import ScryptedInterface
@@ -17,17 +16,12 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .entity import (
+    MOTION_CLASS,
     ScryptedDeviceEntity,
+    async_detection_classes,
     async_setup_scrypted_platform,
     exposed_device,
 )
-
-_LOGGER = logging.getLogger(__name__)
-
-# scrypted reports motion as a detection class (its motion pipeline rides the
-# ObjectDetector interface); HA already exposes that signal via the motion
-# binary_sensor, so the event entity only handles classified objects.
-MOTION_CLASS = "motion"
 
 OBJECT_DETECTED = EventEntityDescription(
     key="object_detected",
@@ -56,7 +50,7 @@ async def async_setup_entry(
             return entities
         interfaces = device.interfaces or []
         if ScryptedInterface.ObjectDetector.value in interfaces:
-            event_types = await _async_object_event_types(device)
+            event_types = await async_detection_classes(device)
             if event_types:
                 entities.append(
                     ScryptedObjectDetectionEvent(
@@ -77,63 +71,22 @@ async def async_setup_entry(
     )
 
 
-async def _async_object_event_types(device) -> list[str]:
-    """Return the detection classes the device reports, minus scrypted's motion class."""
-    try:
-        object_types = await device.getObjectTypes()
-        classes = list((object_types or {}).get("classes") or [])
-    except Exception:  # noqa: BLE001 - some detectors don't implement this
-        _LOGGER.debug("getObjectTypes failed for %s", device.id, exc_info=True)
-        classes = []
-    return [name for name in classes if name != MOTION_CLASS]
-
-
 class ScryptedObjectDetectionEvent(ScryptedDeviceEntity, EventEntity):
-    """Fires when the scrypted ObjectDetector reports detections.
-
-    Stateless ObjectsDetected payloads do not reach system listeners, so this
-    entity owns a per-device server-side subscription (listenDevice) and must
-    re-register it after every reconnect.
-    """
+    """Fires when the scrypted ObjectDetector reports detections."""
 
     def __init__(self, client, entry, device_id, description, event_types) -> None:
         """Initialize the object detection event entity."""
         super().__init__(client, entry, device_id, description)
         self._attr_event_types: list[str] = event_types
-        self._unregister = None
 
     async def async_added_to_hass(self) -> None:
-        """Register the detection listener and re-register it after reconnects."""
+        """Receive the device's detections."""
         await super().async_added_to_hass()
-        self._register_listener()
-        self.async_on_remove(self._remove_listener)
-
-    def _register_listener(self) -> None:
-        if not self.client.sdk:
-            return
-        self._unregister = self.client.sdk.systemManager.listenDevice(
-            self.device_id,
-            ScryptedInterface.ObjectDetector.value,
-            self._on_objects_detected,
-        )
-
-    def _remove_listener(self) -> None:
-        if self._unregister:
-            self._unregister.removeListener()
-            self._unregister = None
+        self._async_listen_detections(self._on_objects_detected)
 
     @callback
-    def _handle_connection_change(self, connected: bool) -> None:
-        if connected:
-            # The previous registration died with the old transport; calling
-            # removeListener on it would RPC over a closed peer.
-            self._unregister = None
-            self._register_listener()
-        super()._handle_connection_change(connected)
-
-    def _on_objects_detected(self, device, event_details: dict, data: Any) -> None:
-        """Fire one event per detected class; runs on the HA loop via the engine.io read task."""
-        data = data or {}
+    def _on_objects_detected(self, data: dict) -> None:
+        """Fire one event per detected class."""
         detection_id = data.get("detectionId")
         seen: set[str] = set()
         for detection in data.get("detections") or []:
