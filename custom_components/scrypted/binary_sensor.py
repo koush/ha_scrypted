@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+
+from scrypted_sdk import ScryptedInterface
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -11,15 +14,22 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 
 from .entity import (
     ScryptedDeviceEntity,
     ScryptedEntityDescriptionMixin,
+    async_detection_classes,
     async_setup_scrypted_platform,
     device_matches,
+    exposed_device,
 )
+
+# Seconds a detected sensor stays on after its class was last seen, matching
+# the default of scrypted's own Smart Motion Sensor.
+DETECTION_TIMEOUT = 60
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -125,12 +135,21 @@ async def async_setup_entry(
     """Set up scrypted binary sensors."""
     client = config_entry.runtime_data.client
 
-    def _discover(device_id: str) -> list[ScryptedBinarySensor]:
-        return [
+    async def _discover(device_id: str) -> list[BinarySensorEntity]:
+        entities: list[BinarySensorEntity] = [
             ScryptedBinarySensor(client, config_entry, device_id, description)
             for description in BINARY_SENSORS
             if device_matches(client, device_id, description.interface)
         ]
+        if device_matches(client, device_id, ScryptedInterface.ObjectDetector.value):
+            device = exposed_device(client, device_id)
+            entities.extend(
+                ScryptedObjectDetectedSensor(
+                    client, config_entry, device_id, class_name
+                )
+                for class_name in await async_detection_classes(device)
+            )
+        return entities
 
     await async_setup_scrypted_platform(
         hass, config_entry, async_add_entities, _discover
@@ -149,3 +168,71 @@ class ScryptedBinarySensor(ScryptedDeviceEntity, BinarySensorEntity):
         if value is None:
             return None
         return bool(self.entity_description.value_fn(value))
+
+
+class ScryptedObjectDetectedSensor(ScryptedDeviceEntity, BinarySensorEntity):
+    """On while a camera keeps detecting one object class.
+
+    scrypted reports detections as a stream with no end signal, so like its
+    Smart Motion Sensor this turns off once DETECTION_TIMEOUT passes without
+    another detection of the class. Created disabled: detection models can
+    advertise dozens of classes, and a disabled sensor never subscribes.
+    """
+
+    _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
+    _attr_entity_registry_enabled_default = False
+    _attr_is_on = False
+
+    def __init__(
+        self,
+        client,
+        entry: ConfigEntry,
+        device_id: str,
+        class_name: str,
+    ) -> None:
+        """Initialize the sensor for one detection class."""
+        super().__init__(
+            client,
+            entry,
+            device_id,
+            BinarySensorEntityDescription(
+                key=f"{class_name}_detected",
+                name=f"{class_name.capitalize()} detected",
+            ),
+        )
+        self._class_name = class_name
+        self._cancel_clear: CALLBACK_TYPE | None = None
+
+    async def async_added_to_hass(self) -> None:
+        """Receive the device's detections."""
+        await super().async_added_to_hass()
+        self._async_listen_detections(self._on_objects_detected)
+        self.async_on_remove(self._async_cancel_clear)
+
+    @callback
+    def _on_objects_detected(self, data: dict) -> None:
+        """Turn on, or extend the timeout, when the payload has this class."""
+        if not any(
+            detection.get("className") == self._class_name
+            for detection in data.get("detections") or []
+        ):
+            return
+        self._async_cancel_clear()
+        self._cancel_clear = async_call_later(
+            self.hass, DETECTION_TIMEOUT, self._async_clear
+        )
+        if not self._attr_is_on:
+            self._attr_is_on = True
+            self.async_write_ha_state()
+
+    @callback
+    def _async_clear(self, _now: datetime) -> None:
+        self._cancel_clear = None
+        self._attr_is_on = False
+        self.async_write_ha_state()
+
+    @callback
+    def _async_cancel_clear(self) -> None:
+        if self._cancel_clear:
+            self._cancel_clear()
+            self._cancel_clear = None

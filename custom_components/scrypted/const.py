@@ -15,6 +15,8 @@ CONF_ENABLE_ENTITIES = "enable_entities"
 SIGNAL_DEVICE_UPDATE = "scrypted_{}_device_update_{}"  # entry_id, device_id
 SIGNAL_NEW_DEVICE = "scrypted_{}_new_device"  # entry_id; payload: device_id
 SIGNAL_CONNECTION = "scrypted_{}_connection"  # entry_id; payload: connected bool
+# entry_id, device_id; payload: the ObjectsDetected dict
+SIGNAL_DETECTIONS = "scrypted_{}_detections_{}"
 
 # Scrypted device types that are server plumbing, never user-facing devices.
 EXCLUDED_DEVICE_TYPES = {

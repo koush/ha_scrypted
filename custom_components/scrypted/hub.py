@@ -3,17 +3,29 @@
 from __future__ import annotations
 
 import asyncio
+from collections import Counter
+from functools import partial
 import logging
 from typing import Any
 
-from scrypted_sdk import EioRpcTransport, ScryptedConnectionError, ScryptedStatic
+from scrypted_sdk import (
+    EioRpcTransport,
+    ScryptedConnectionError,
+    ScryptedInterface,
+    ScryptedStatic,
+)
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .const import SIGNAL_CONNECTION, SIGNAL_DEVICE_UPDATE, SIGNAL_NEW_DEVICE
+from .const import (
+    SIGNAL_CONNECTION,
+    SIGNAL_DETECTIONS,
+    SIGNAL_DEVICE_UPDATE,
+    SIGNAL_NEW_DEVICE,
+)
 from .sdk import async_connect_sdk
 
 __all__ = ["ScryptedClient"]
@@ -37,6 +49,10 @@ class ScryptedClient:
         self._known_ids: set[str] = set()
         self._closing = False
         self._reconnect_task: asyncio.Task | None = None
+        # Entities holding each device's shared ObjectDetector subscription,
+        # and the live server-side registration for it.
+        self._detection_refs: Counter[str] = Counter()
+        self._detection_registers: dict[str, Any] = {}
 
     @property
     def host(self) -> str:
@@ -59,6 +75,10 @@ class ScryptedClient:
             self.entry.data.get(CONF_PASSWORD, ""),
         )
         self.sdk.systemManager.listen(self._on_system_event)
+        # Registrations die with the transport, so a reconnect renews every
+        # subscription an entity still holds.
+        for device_id in self._detection_refs:
+            self._register_detections(device_id)
 
         @self.transport.eio.on("disconnect")
         def on_disconnect(*args):
@@ -98,11 +118,58 @@ class ScryptedClient:
         )
 
     @callback
+    def async_subscribe_detections(self, device_id: str) -> CALLBACK_TYPE:
+        """Hold the device's shared ObjectDetector subscription; return a release.
+
+        Stateless ObjectsDetected payloads never reach the system listener, and
+        each listenDevice is its own server-side subscription carrying every
+        payload, motion included, several times a second. Entities therefore
+        share one per device and receive payloads on SIGNAL_DETECTIONS.
+        """
+        self._detection_refs[device_id] += 1
+        if self._detection_refs[device_id] == 1:
+            self._register_detections(device_id)
+
+        @callback
+        def _release() -> None:
+            self._detection_refs[device_id] -= 1
+            if self._detection_refs[device_id]:
+                return
+            del self._detection_refs[device_id]
+            if register := self._detection_registers.pop(device_id, None):
+                register.removeListener()
+
+        return _release
+
+    def _register_detections(self, device_id: str) -> None:
+        if not self.sdk:
+            return
+        self._detection_registers[device_id] = self.sdk.systemManager.listenDevice(
+            device_id,
+            ScryptedInterface.ObjectDetector.value,
+            partial(self._on_detections, device_id),
+        )
+
+    @callback
+    def _on_detections(
+        self, device_id: str, device: Any, event_details: dict, data: Any
+    ) -> None:
+        """Dispatch a detection payload; runs on the HA event loop (engine.io read task)."""
+        async_dispatcher_send(
+            self.hass,
+            SIGNAL_DETECTIONS.format(self.entry.entry_id, device_id),
+            data or {},
+        )
+
+    @callback
     def _handle_disconnect(self) -> None:
         if self._closing:
             return
         _LOGGER.warning("Scrypted %s disconnected; reconnecting", self.host)
         self.connected = False
+        # The registrations died with the transport; removing one would RPC
+        # over a closed peer.
+        self._detection_registers.clear()
         async_dispatcher_send(
             self.hass, SIGNAL_CONNECTION.format(self.entry.entry_id), False
         )
