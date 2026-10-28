@@ -171,13 +171,16 @@ class ScryptedDeviceEntity(Entity):
         # entries. It is deprecated in favour of the hub's registry id.
         hub_device_id = entry.runtime_data.hub_device_id
         assert hub_device_id is not None  # registered alongside the client
+        # Some plugins report a numeric serial; the device registry only
+        # accepts strings from HA 2026.12 on.
+        serial = info.get("serialNumber")
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{device_id}")},
             name=device.name,
             manufacturer=info.get("manufacturer"),
             model=info.get("model"),
             sw_version=info.get("version") or info.get("firmware"),
-            serial_number=info.get("serialNumber"),
+            serial_number=str(serial) if serial is not None else None,
             suggested_area=device.room,
             via_device_id=hub_device_id,
             configuration_url=info.get("managementUrl"),

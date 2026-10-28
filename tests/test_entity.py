@@ -327,3 +327,19 @@ async def test_setup_does_not_use_deprecated_via_device(
     await setup_entry(hass)
 
     assert "deprecated `via_device`" not in caplog.text
+
+
+async def test_numeric_serial_number_is_registered_as_text(
+    hass, system_state, enable_custom_integrations, caplog
+):
+    """Regression for #73: the registry rejects non-string serials from 2026.12."""
+    system_state["cam1"]["info"]["value"]["serialNumber"] = 123456
+    entry = await setup_entry(hass)
+
+    cam = dr.async_get(hass).async_get_device_by_identifier(
+        (DOMAIN, f"{entry.entry_id}_cam1"), entry.entry_id
+    )
+
+    assert cam is not None
+    assert cam.serial_number == "123456"
+    assert "non-string value" not in caplog.text
